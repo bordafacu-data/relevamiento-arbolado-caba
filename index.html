@@ -18,10 +18,15 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
-    #map { height: 380px; border-radius: 0.75rem; }
+    #map { 
+      height: 380px !important; 
+      width: 100% !important; 
+      border-radius: 0.75rem; 
+      z-index: 10;
+      min-height: 350px;
+    }
     .badge-gps { background-color: #10b981; color: white; }
     .badge-manual { background-color: #f59e0b; color: white; }
-    /* Evitar que se seleccione texto al apretar rápido los botones + y - */
     .no-select { user-select: none; -webkit-user-select: none; }
   </style>
 </head>
@@ -189,12 +194,11 @@
 
   <script>
     // ==========================================
-    // 1. CONFIGURACIÓN DE SUPABASE (PEGAR TUS CLAVES AQUÍ)
+    // 1. CONFIGURACIÓN DE SUPABASE (TUS CLAVES)
     // ==========================================
     const SUPABASE_URL = 'https://lujbpyzetpuifondqkxy.supabase.co/rest/v1/';
     const SUPABASE_ANON_KEY = 'sb_publishable_EHi7TVLM0JTpUjmmPnpl1w_ytwcl_7O';
     
-    // Inicializar cliente de Supabase (si las claves no se pegaron, usa modo local)
     const supabase = (SUPABASE_URL.startsWith('http')) 
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
       : null;
@@ -205,6 +209,9 @@
       datosOficiales: [],
       reportes: []
     };
+
+    let map = null;
+    let layerGroup = null;
 
     // ==========================================
     // 2. FUNCIÓN DE INCREMENTO / DECREMENTO (+ / -)
@@ -217,19 +224,34 @@
     }
 
     // ==========================================
-    // 3. MAPA LEAFLET
+    // 3. INICIALIZACIÓN DEL MAPA (LEAFLET)
     // ==========================================
-    const map = L.map('map').setView([-34.6037, -58.3816], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-    const layerGroup = L.layerGroup().addTo(map);
+    function inicializarMapa() {
+      if (map !== null) return;
+      
+      map = L.map('map', {
+        center: [-34.6037, -58.3816],
+        zoom: 12
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      layerGroup = L.layerGroup().addTo(map);
+
+      // Asegurar que Leaflet recalcule el tamaño del mapa en pantalla
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 250);
+    }
 
     // ==========================================
     // 4. CARGA AUTOMÁTICA DE CSVs DESDE EL REPOSITORIO
     // ==========================================
     async function cargarDatasetsLocales() {
-      // 1. Cargar arbolado_cuadras.csv
+      // Cargar arbolado_cuadras.csv
       Papa.parse("arbolado_cuadras.csv", {
         download: true,
         header: true,
@@ -247,7 +269,7 @@
         }
       });
 
-      // 2. Cargar callejero_app.csv para autocompletado
+      // Cargar callejero_app.csv
       Papa.parse("callejero_app.csv", {
         download: true,
         header: true,
@@ -324,12 +346,10 @@
       const mutilados = parseInt(document.getElementById('input-mutilados').value) || 0;
       const alias = document.getElementById('input-alias').value.trim() || "Vecino Anónimo";
 
-      // Coordenadas y validación
       let lat = -34.6037;
       let lon = -58.3816;
       let verificado_gps = false;
 
-      // Buscar si la cuadra está en el dataset oficial para tomar su centroide
       const match = STATE.datosOficiales.find(d => 
         d.calle_nombre && d.calle_nombre.toString().toUpperCase().includes(calle) && Math.abs(d.calle_altura - altura) < 100
       );
@@ -341,7 +361,7 @@
 
       if (STATE.userLocation) {
         const dist = distanciaHaversine(STATE.userLocation.lat, STATE.userLocation.lon, lat, lon);
-        verificado_gps = (dist <= 300); // Verificado si está a menos de 300m
+        verificado_gps = (dist <= 300);
         if (verificado_gps) {
           lat = STATE.userLocation.lat;
           lon = STATE.userLocation.lon;
@@ -355,15 +375,13 @@
 
       if (supabase) {
         const { error } = await supabase.from('reportes_arbolado').insert([nuevoReporte]);
-        if (error) alert("Error al subir a la base de datos: " + error.message);
+        if (error) alert("Error al subir a Supabase: " + error.message);
         await sincronizarReportes();
       } else {
-        // Fallback local si no configuró Supabase todavía
         STATE.reportes.unshift(nuevoReporte);
         actualizarVisualizaciones();
       }
 
-      // Resetear contadores
       document.getElementById('input-visibles').value = 0;
       document.getElementById('input-cementados').value = 0;
       document.getElementById('input-mutilados').value = 0;
@@ -421,25 +439,27 @@
       }
 
       // Marcadores en Mapa
-      layerGroup.clearLayers();
-      STATE.reportes.forEach(r => {
-        if (r.lat && r.lon) {
-          const color = (r.cementados > 0 || r.mutilados > 0) ? '#dc2626' : '#059669';
-          L.circleMarker([r.lat, r.lon], { radius: 7, color: color, fillOpacity: 0.8 })
-            .bindPopup(`<b>${r.calle} ${r.altura}</b><br>Vivos: ${r.arboles_vivos}<br>Cementados: ${r.cementados}<br>Por: ${r.usuario_nombre}`)
-            .addTo(layerGroup);
-        }
-      });
+      if (layerGroup) {
+        layerGroup.clearLayers();
+        STATE.reportes.forEach(r => {
+          if (r.lat && r.lon) {
+            const color = (r.cementados > 0 || r.mutilados > 0) ? '#dc2626' : '#059669';
+            L.circleMarker([r.lat, r.lon], { radius: 7, color: color, fillOpacity: 0.8 })
+              .bindPopup(`<b>${r.calle} ${r.altura}</b><br>Vivos: ${r.arboles_vivos}<br>Cementados: ${r.cementados}<br>Por: ${r.usuario_nombre}`)
+              .addTo(layerGroup);
+          }
+        });
+      }
     }
 
     // ==========================================
     // 8. INICIO
     // ==========================================
     window.addEventListener('DOMContentLoaded', () => {
+      inicializarMapa();
       iniciarGPS();
       cargarDatasetsLocales();
       sincronizarReportes();
-      // Refresco periódico cada 15 segundos para recibir reportes de otros usuarios
       setInterval(sincronizarReportes, 15000);
     });
   </script>
