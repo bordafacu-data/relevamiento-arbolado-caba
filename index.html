@@ -11,7 +11,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- Supabase JS Client & PapaParse -->
+  <!-- Supabase JS & PapaParse -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <!-- Leaflet JS -->
@@ -22,8 +22,9 @@
       height: 380px !important; 
       width: 100% !important; 
       border-radius: 0.75rem; 
-      z-index: 10;
+      z-index: 1;
       min-height: 350px;
+      background: #e2e8f0;
     }
     .badge-gps { background-color: #10b981; color: white; }
     .badge-manual { background-color: #f59e0b; color: white; }
@@ -48,7 +49,7 @@
   <!-- CONTENEDOR PRINCIPAL -->
   <main class="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow w-full">
 
-    <!-- PANEL IZQUIERDO: RELEVAMIENTO PASO A PASO (CON BOTONES + / -) -->
+    <!-- PANEL IZQUIERDO: RELEVAMIENTO PASO A PASO -->
     <section class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
       <div>
         <div class="flex justify-between items-center mb-2">
@@ -193,15 +194,19 @@
   </main>
 
   <script>
-    // ==========================================
-    // 1. CONFIGURACIÓN DE SUPABASE (TUS CLAVES)
-    // ==========================================
+    // 1. CREDENCIALES DE SUPABASE (Pegá tus datos aquí)
     const SUPABASE_URL = 'https://lujbpyzetpuifondqkxy.supabase.co/rest/v1/';
     const SUPABASE_ANON_KEY = 'sb_publishable_EHi7TVLM0JTpUjmmPnpl1w_ytwcl_7O';
     
-    const supabase = (SUPABASE_URL.startsWith('http')) 
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
-      : null;
+    // Inicializar cliente sin colisionar con la variable window.supabase
+    let supabaseClient = null;
+    try {
+      if (typeof window.supabase !== 'undefined' && SUPABASE_URL.startsWith('http')) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+    } catch (err) {
+      console.warn("Supabase no inicializado:", err);
+    }
 
     // ESTADO GLOBAL
     const STATE = {
@@ -213,9 +218,7 @@
     let map = null;
     let layerGroup = null;
 
-    // ==========================================
     // 2. FUNCIÓN DE INCREMENTO / DECREMENTO (+ / -)
-    // ==========================================
     function alterarValor(inputId, delta) {
       const input = document.getElementById(inputId);
       let valorActual = parseInt(input.value) || 0;
@@ -223,16 +226,11 @@
       input.value = valorActual;
     }
 
-    // ==========================================
-    // 3. INICIALIZACIÓN DEL MAPA (LEAFLET)
-    // ==========================================
+    // 3. INICIALIZACIÓN ROBUSTA DEL MAPA LEAFLET
     function inicializarMapa() {
       if (map !== null) return;
       
-      map = L.map('map', {
-        center: [-34.6037, -58.3816],
-        zoom: 12
-      });
+      map = L.map('map').setView([-34.6037, -58.3816], 12);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
@@ -241,17 +239,13 @@
 
       layerGroup = L.layerGroup().addTo(map);
 
-      // Asegurar que Leaflet recalcule el tamaño del mapa en pantalla
       setTimeout(() => {
-        map.invalidateSize();
-      }, 250);
+        if (map) map.invalidateSize();
+      }, 300);
     }
 
-    // ==========================================
-    // 4. CARGA AUTOMÁTICA DE CSVs DESDE EL REPOSITORIO
-    // ==========================================
+    // 4. CARGA AUTOMÁTICA DE CSVs
     async function cargarDatasetsLocales() {
-      // Cargar arbolado_cuadras.csv
       Papa.parse("arbolado_cuadras.csv", {
         download: true,
         header: true,
@@ -260,22 +254,24 @@
         complete: function(results) {
           if (results.data && results.data.length > 0) {
             STATE.datosOficiales = results.data;
-            document.getElementById('total-cuadras-oficiales').innerText = `${STATE.datosOficiales.length} cuadras`;
+            const el = document.getElementById('total-cuadras-oficiales');
+            if (el) el.innerText = `${STATE.datosOficiales.length} cuadras`;
             actualizarVisualizaciones();
           }
         },
         error: function() {
-          document.getElementById('total-cuadras-oficiales').innerText = `Modo Offline (sin CSV)`;
+          const el = document.getElementById('total-cuadras-oficiales');
+          if (el) el.innerText = `Modo Offline`;
         }
       });
 
-      // Cargar callejero_app.csv
       Papa.parse("callejero_app.csv", {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
           const datalist = document.getElementById('calles-datalist');
+          if (!datalist) return;
           const nombres = new Set();
           results.data.forEach(r => {
             const n = r.calle_nombre || r.nom_oficial || r.calle || Object.values(r)[0];
@@ -290,21 +286,23 @@
       });
     }
 
-    // ==========================================
-    // 5. OBTENER GPS DEL CELULAR
-    // ==========================================
+    // 5. GEOLOCALIZACIÓN
     function iniciarGPS() {
       const label = document.getElementById('gps-status');
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
           (pos) => {
             STATE.userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-            label.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800";
-            label.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> GPS Activo`;
+            if (label) {
+              label.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800";
+              label.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> GPS Activo`;
+            }
           },
           () => {
-            label.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800";
-            label.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Sin GPS (Manual)`;
+            if (label) {
+              label.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800";
+              label.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Sin GPS (Manual)`;
+            }
           },
           { enableHighAccuracy: true }
         );
@@ -319,15 +317,17 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // ==========================================
-    // 6. LEER Y GUARDAR EN SUPABASE
-    // ==========================================
+    // 6. SINCRONIZACIÓN SUPABASE
     async function sincronizarReportes() {
-      if (supabase) {
-        const { data, error } = await supabase.from('reportes_arbolado').select('*').order('id', { ascending: false }).limit(50);
-        if (!error && data) {
-          STATE.reportes = data;
-          actualizarVisualizaciones();
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient.from('reportes_arbolado').select('*').order('id', { ascending: false }).limit(50);
+          if (!error && data) {
+            STATE.reportes = data;
+            actualizarVisualizaciones();
+          }
+        } catch (err) {
+          console.error("Error sincronizando reportes:", err);
         }
       }
     }
@@ -373,9 +373,9 @@
         usuario_nombre: alias, verificado_gps, lat, lon
       };
 
-      if (supabase) {
-        const { error } = await supabase.from('reportes_arbolado').insert([nuevoReporte]);
-        if (error) alert("Error al subir a Supabase: " + error.message);
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from('reportes_arbolado').insert([nuevoReporte]);
+        if (error) alert("Error Supabase: " + error.message);
         await sincronizarReportes();
       } else {
         STATE.reportes.unshift(nuevoReporte);
@@ -389,9 +389,7 @@
       btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Confirmar y Enviar Cuadra</span>`;
     });
 
-    // ==========================================
-    // 7. ACTUALIZAR DASHBOARD, TABLA Y MAPA
-    // ==========================================
+    // 7. ACTUALIZACIÓN VISUAL
     function actualizarVisualizaciones() {
       let totalOficial = 0;
       let totalVecinos = 0;
@@ -409,33 +407,39 @@
         }
       });
 
-      document.getElementById('stat-oficial').innerText = totalOficial || '--';
-      document.getElementById('stat-vecinal').innerText = totalVecinos;
-      document.getElementById('stat-discrepancia').innerText = totalAlertas;
+      const elOficial = document.getElementById('stat-oficial');
+      const elVecinal = document.getElementById('stat-vecinal');
+      const elDiscrepancia = document.getElementById('stat-discrepancia');
+
+      if (elOficial) elOficial.innerText = totalOficial || '--';
+      if (elVecinal) elVecinal.innerText = totalVecinos;
+      if (elDiscrepancia) elDiscrepancia.innerText = totalAlertas;
 
       // Tabla
       const tbody = document.getElementById('tabla-reportes-body');
-      tbody.innerHTML = '';
-      if (STATE.reportes.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-400">Aún no hay relevamientos cargados.</td></tr>`;
-      } else {
-        STATE.reportes.slice(0, 10).forEach(r => {
-          const tr = document.createElement('tr');
-          tr.className = "border-b hover:bg-slate-50";
-          tr.innerHTML = `
-            <td class="p-2 font-medium">${r.calle} ${r.altura}</td>
-            <td class="p-2">${r.comuna}</td>
-            <td class="p-2 font-bold text-emerald-700">${r.arboles_vivos || 0}</td>
-            <td class="p-2 text-amber-600 font-semibold">${r.cementados || 0}</td>
-            <td class="p-2 text-[11px] text-slate-500">${r.usuario_nombre || 'Anónimo'}</td>
-            <td class="p-2">
-              <span class="px-2 py-0.5 text-[9px] rounded-full font-bold ${r.verificado_gps ? 'badge-gps' : 'badge-manual'}">
-                ${r.verificado_gps ? 'GPS OK' : 'MANUAL'}
-              </span>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        });
+      if (tbody) {
+        tbody.innerHTML = '';
+        if (STATE.reportes.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-400">Aún no hay relevamientos cargados.</td></tr>`;
+        } else {
+          STATE.reportes.slice(0, 10).forEach(r => {
+            const tr = document.createElement('tr');
+            tr.className = "border-b hover:bg-slate-50";
+            tr.innerHTML = `
+              <td class="p-2 font-medium">${r.calle} ${r.altura}</td>
+              <td class="p-2">${r.comuna}</td>
+              <td class="p-2 font-bold text-emerald-700">${r.arboles_vivos || 0}</td>
+              <td class="p-2 text-amber-600 font-semibold">${r.cementados || 0}</td>
+              <td class="p-2 text-[11px] text-slate-500">${r.usuario_nombre || 'Anónimo'}</td>
+              <td class="p-2">
+                <span class="px-2 py-0.5 text-[9px] rounded-full font-bold ${r.verificado_gps ? 'badge-gps' : 'badge-manual'}">
+                  ${r.verificado_gps ? 'GPS OK' : 'MANUAL'}
+                </span>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
       }
 
       // Marcadores en Mapa
@@ -452,9 +456,7 @@
       }
     }
 
-    // ==========================================
-    // 8. INICIO
-    // ==========================================
+    // 8. ARRANQUE
     window.addEventListener('DOMContentLoaded', () => {
       inicializarMapa();
       iniciarGPS();
