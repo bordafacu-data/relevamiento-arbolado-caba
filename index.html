@@ -2,328 +2,445 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Relevamiento Arbolado CABA | Ciencia Ciudadana</title>
   
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Tailwind CSS & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
+  <!-- Supabase JS Client & PapaParse -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
-    #map { height: 420px; border-radius: 0.75rem; }
+    #map { height: 380px; border-radius: 0.75rem; }
     .badge-gps { background-color: #10b981; color: white; }
     .badge-manual { background-color: #f59e0b; color: white; }
+    /* Evitar que se seleccione texto al apretar rápido los botones + y - */
+    .no-select { user-select: none; -webkit-user-select: none; }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
 
-  <header class="bg-emerald-800 text-white shadow-md">
+  <!-- NAVBAR -->
+  <header class="bg-emerald-800 text-white shadow-md sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2">
         <i class="fa-solid fa-tree text-2xl text-emerald-300"></i>
-        <span class="font-bold text-xl tracking-tight">Arbolado CABA <span class="text-xs font-light bg-emerald-700 px-2 py-0.5 rounded">Comunitario</span></span>
+        <span class="font-bold text-lg tracking-tight">Arbolado CABA <span class="text-[10px] font-normal bg-emerald-700 px-2 py-0.5 rounded text-emerald-200">Vecinal</span></span>
       </div>
-      <div id="user-session" class="flex items-center space-x-3 text-sm">
-        </div>
+      <div id="user-display" class="flex items-center space-x-2 text-xs">
+        <input type="text" id="input-alias" placeholder="Tu Nombre/Alias" class="px-2 py-1 rounded text-slate-800 bg-emerald-50 text-xs w-28 focus:outline-none border-none">
+      </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow w-full">
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow w-full">
 
-    <section class="lg:col-span-1 bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+    <!-- PANEL IZQUIERDO: RELEVAMIENTO PASO A PASO (CON BOTONES + / -) -->
+    <section class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
       <div>
-        <h2 class="text-lg font-bold text-slate-800 mb-2 flex items-center">
-          <i class="fa-solid fa-clipboard-check text-emerald-600 mr-2"></i> Nuevo Reporte de Cuadra
-        </h2>
-        <p class="text-xs text-slate-500 mb-4">Ingresá la calle, altura y el estado de los árboles observados.</p>
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="text-base font-bold text-slate-800 flex items-center">
+            <i class="fa-solid fa-person-walking text-emerald-600 mr-2"></i> Relevar Cuadra
+          </h2>
+          <span id="gps-status" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+            <i class="fa-solid fa-crosshairs mr-1"></i> Buscando GPS...
+          </span>
+        </div>
+        <p class="text-xs text-slate-500 mb-4">Caminá por la cuadra y sumá con los botones <b>+</b> cada árbol observado.</p>
 
         <form id="form-relevamiento" class="space-y-4">
+          <!-- CALLE Y ALTURA CON AUTOCOMPLETADO -->
           <div>
-            <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Calle</label>
-            <input type="text" id="input-calle" list="calles-datalist" placeholder="Ej: Corrientes" required
-              class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Calle</label>
+            <input type="text" id="input-calle" list="calles-datalist" placeholder="Ej: CORRIENTES AV." required
+              class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 uppercase focus:outline-none">
             <datalist id="calles-datalist"></datalist>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Altura Aprox.</label>
-              <input type="number" id="input-altura" placeholder="Ej: 1200" required
+              <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Altura Cuadra</label>
+              <input type="number" id="input-altura" placeholder="Ej: 1200" step="100" required
                 class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             </div>
             <div>
-              <label class="block text-xs font-semibold uppercase text-slate-600 mb-1">Comuna (1-15)</label>
+              <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Comuna (1-15)</label>
               <input type="number" id="input-comuna" min="1" max="15" placeholder="Ej: 3" required
                 class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             </div>
           </div>
 
-          <div class="border-t pt-3 space-y-3">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700">Árboles Visibles / Vivos</label>
-              <input type="number" id="input-visibles" min="0" value="0" required
-                class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
+          <!-- CONTADORES TÁCTILES CON BOTONES + / - -->
+          <div class="space-y-3 pt-2">
+            
+            <!-- Árboles Vivos -->
+            <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-emerald-900 block">Árboles Vivos</span>
+                <span class="text-[10px] text-emerald-700">En pie y con copa</span>
+              </div>
+              <div class="flex items-center space-x-2 no-select">
+                <button type="button" onclick="alterarValor('input-visibles', -1)" class="w-8 h-8 rounded-full bg-emerald-200 active:bg-emerald-300 text-emerald-900 font-bold text-base flex items-center justify-center">-</button>
+                <input type="number" id="input-visibles" min="0" value="0" class="w-12 text-center font-bold bg-white border border-emerald-300 rounded py-1 text-sm focus:outline-none">
+                <button type="button" onclick="alterarValor('input-visibles', 1)" class="w-8 h-8 rounded-full bg-emerald-600 active:bg-emerald-700 text-white font-bold text-base flex items-center justify-center shadow-sm">+</button>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-semibold text-amber-700">Canteros Tapeados / Cementados</label>
-              <input type="number" id="input-cementados" min="0" value="0"
-                class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
+
+            <!-- Canteros Cementados -->
+            <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-amber-900 block">Canteros Tapeados</span>
+                <span class="text-[10px] text-amber-700">Cementados / Asfaltados</span>
+              </div>
+              <div class="flex items-center space-x-2 no-select">
+                <button type="button" onclick="alterarValor('input-cementados', -1)" class="w-8 h-8 rounded-full bg-amber-200 active:bg-amber-300 text-amber-900 font-bold text-base flex items-center justify-center">-</button>
+                <input type="number" id="input-cementados" min="0" value="0" class="w-12 text-center font-bold bg-white border border-amber-300 rounded py-1 text-sm focus:outline-none">
+                <button type="button" onclick="alterarValor('input-cementados', 1)" class="w-8 h-8 rounded-full bg-amber-600 active:bg-amber-700 text-white font-bold text-base flex items-center justify-center shadow-sm">+</button>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-semibold text-red-700">Poda Mutilante / Daño Severo</label>
-              <input type="number" id="input-mutilados" min="0" value="0"
-                class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500">
+
+            <!-- Poda Mutilante / Daño -->
+            <div class="bg-red-50/60 p-3 rounded-xl border border-red-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-red-900 block">Poda Mutilante</span>
+                <span class="text-[10px] text-red-700">Corte destructivo / Muerto</span>
+              </div>
+              <div class="flex items-center space-x-2 no-select">
+                <button type="button" onclick="alterarValor('input-mutilados', -1)" class="w-8 h-8 rounded-full bg-red-200 active:bg-red-300 text-red-900 font-bold text-base flex items-center justify-center">-</button>
+                <input type="number" id="input-mutilados" min="0" value="0" class="w-12 text-center font-bold bg-white border border-red-300 rounded py-1 text-sm focus:outline-none">
+                <button type="button" onclick="alterarValor('input-mutilados', 1)" class="w-8 h-8 rounded-full bg-red-600 active:bg-red-700 text-white font-bold text-base flex items-center justify-center shadow-sm">+</button>
+              </div>
             </div>
+
           </div>
 
-          <div id="gps-status" class="text-xs p-2 rounded bg-slate-100 text-slate-600 flex items-center">
-            <i class="fa-solid fa-location-crosshairs mr-2"></i> Verificando geolocalización...
-          </div>
-
-          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 shadow">
-            Guardar Relevamiento
+          <button type="submit" id="btn-guardar" class="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl transition duration-150 shadow-md flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>Confirmar y Enviar Cuadra</span>
           </button>
         </form>
       </div>
 
-      <div class="mt-6 pt-4 border-t border-slate-200">
-        <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Cargar CSV Oficial / Calles</label>
-        <input type="file" id="csv-file-input" accept=".csv" class="text-xs file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-emerald-100 file:text-emerald-800 hover:file:bg-emerald-200 w-full">
+      <div class="mt-4 pt-3 border-t text-[11px] text-slate-400 flex items-center justify-between">
+        <span>Base oficial precargada: <b id="total-cuadras-oficiales">Cargando...</b></span>
       </div>
     </section>
 
-    <section class="lg:col-span-2 space-y-6">
+    <!-- PANEL DERECHO: MAPA Y COMPARATIVA DE DATOS -->
+    <section class="lg:col-span-2 space-y-4">
 
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-bold text-sm text-slate-700 uppercase tracking-wide">Distribución Espacial en CABA</h3>
-          <span class="text-xs text-slate-400">Verde: Oficial | Rojo: Alerta Comunitaria</span>
+      <!-- MAPA -->
+      <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+        <div class="flex justify-between items-center mb-2 px-1">
+          <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Mapa Interactivo Comunitario</h3>
+          <span class="text-[11px] text-slate-400">Verde: Oficial | Azul: Reporte Vecinal | Rojo: Con Alerta</span>
         </div>
         <div id="map"></div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <span class="text-xs text-slate-500 font-medium">Oficial Estimado</span>
-          <div id="stat-oficial" class="text-2xl font-bold text-slate-800 mt-1">--</div>
-          <span class="text-[11px] text-slate-400">Registros censados GCBA</span>
+      <!-- MÉTRICAS EN TIEMPO REAL -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 text-center">
+          <span class="text-[11px] text-slate-500 font-semibold uppercase">Censo GCBA</span>
+          <div id="stat-oficial" class="text-xl md:text-2xl font-black text-slate-800 mt-0.5">--</div>
+          <span class="text-[10px] text-slate-400">En cuadras relevadas</span>
         </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <span class="text-xs text-emerald-600 font-medium">Relevamiento Vecinal</span>
-          <div id="stat-vecinal" class="text-2xl font-bold text-emerald-700 mt-1">--</div>
-          <span class="text-[11px] text-slate-400">Árboles vivos informados</span>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 text-center">
+          <span class="text-[11px] text-emerald-600 font-semibold uppercase">Vecinos Vieron</span>
+          <div id="stat-vecinal" class="text-xl md:text-2xl font-black text-emerald-600 mt-0.5">--</div>
+          <span class="text-[10px] text-slate-400">Árboles vivos reportados</span>
         </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-          <span class="text-xs text-red-600 font-medium">Discrepancia / Faltantes</span>
-          <div id="stat-discrepancia" class="text-2xl font-bold text-red-600 mt-1">--</div>
-          <span class="text-[11px] text-slate-400">Déficit o canteros vacíos</span>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 text-center">
+          <span class="text-[11px] text-red-600 font-semibold uppercase">Déficit / Alertas</span>
+          <div id="stat-discrepancia" class="text-xl md:text-2xl font-black text-red-600 mt-0.5">--</div>
+          <span class="text-[10px] text-slate-400">Tapeados o faltantes</span>
         </div>
       </div>
 
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-        <h3 class="font-bold text-sm text-slate-700 mb-3 uppercase tracking-wide">Últimos Relevamientos</h3>
+      <!-- ÚLTIMOS REPORTES DE LA COMUNIDAD -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
+        <h3 class="font-bold text-xs text-slate-700 mb-2 uppercase tracking-wide">Últimos Relevamientos en la Nube</h3>
         <table class="w-full text-left text-xs text-slate-600">
           <thead class="bg-slate-50 border-b">
             <tr>
               <th class="p-2">Ubicación</th>
               <th class="p-2">Comuna</th>
-              <th class="p-2">Visibles</th>
-              <th class="p-2">Canteros Cementados</th>
-              <th class="p-2">Validación</th>
+              <th class="p-2">Vivos</th>
+              <th class="p-2">Cementados</th>
+              <th class="p-2">Por</th>
+              <th class="p-2">Estado</th>
             </tr>
           </thead>
           <tbody id="tabla-reportes-body">
-            </tbody>
+            <tr><td colspan="6" class="p-3 text-center text-slate-400">Cargando reportes comunitarios...</td></tr>
+          </tbody>
         </table>
       </div>
     </section>
   </main>
 
   <script>
-    // --- ESTADO GLOBAL ---
+    // ==========================================
+    // 1. CONFIGURACIÓN DE SUPABASE (PEGAR TUS CLAVES AQUÍ)
+    // ==========================================
+    const SUPABASE_URL = 'https://lujbpyzetpuifondqkxy.supabase.co/rest/v1/';
+    const SUPABASE_ANON_KEY = 'sb_publishable_EHi7TVLM0JTpUjmmPnpl1w_ytwcl_7O';
+    
+    // Inicializar cliente de Supabase (si las claves no se pegaron, usa modo local)
+    const supabase = (SUPABASE_URL.startsWith('http')) 
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+      : null;
+
+    // ESTADO GLOBAL
     const STATE = {
-      user: { id: "USR-1024", nombre: "Vecino Activo", logged: true },
       userLocation: null,
-      reportes: [],
-      datosOficiales: [
-        // Dataset base precargado (se alimenta del CSV)
-        { calle: "AV. CORRIENTES", altura: 1200, comuna: 3, lat: -34.6042, lon: -58.3860, arboles: 12 },
-        { calle: "AV. SANTA FE", altura: 2500, comuna: 14, lat: -34.5888, lon: -58.4060, arboles: 18 },
-        { calle: "DEFENSA", altura: 800, comuna: 1, lat: -34.6179, lon: -58.3712, arboles: 6 }
-      ]
+      datosOficiales: [],
+      reportes: []
     };
 
-    // --- INICIALIZAR MAPA ---
+    // ==========================================
+    // 2. FUNCIÓN DE INCREMENTO / DECREMENTO (+ / -)
+    // ==========================================
+    function alterarValor(inputId, delta) {
+      const input = document.getElementById(inputId);
+      let valorActual = parseInt(input.value) || 0;
+      valorActual = Math.max(0, valorActual + delta);
+      input.value = valorActual;
+    }
+
+    // ==========================================
+    // 3. MAPA LEAFLET
+    // ==========================================
     const map = L.map('map').setView([-34.6037, -58.3816], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
-
     const layerGroup = L.layerGroup().addTo(map);
 
-    // --- GEOLOCALIZACIÓN Y DISTANCIAS ---
-    function obtenerUbicacion() {
-      const gpsLabel = document.getElementById('gps-status');
+    // ==========================================
+    // 4. CARGA AUTOMÁTICA DE CSVs DESDE EL REPOSITORIO
+    // ==========================================
+    async function cargarDatasetsLocales() {
+      // 1. Cargar arbolado_cuadras.csv
+      Papa.parse("arbolado_cuadras.csv", {
+        download: true,
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          if (results.data && results.data.length > 0) {
+            STATE.datosOficiales = results.data;
+            document.getElementById('total-cuadras-oficiales').innerText = `${STATE.datosOficiales.length} cuadras`;
+            actualizarVisualizaciones();
+          }
+        },
+        error: function() {
+          document.getElementById('total-cuadras-oficiales').innerText = `Modo Offline (sin CSV)`;
+        }
+      });
+
+      // 2. Cargar callejero_app.csv para autocompletado
+      Papa.parse("callejero_app.csv", {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          const datalist = document.getElementById('calles-datalist');
+          const nombres = new Set();
+          results.data.forEach(r => {
+            const n = r.calle_nombre || r.nom_oficial || r.calle || Object.values(r)[0];
+            if (n) nombres.add(n.toString().trim().toUpperCase());
+          });
+          nombres.forEach(nombre => {
+            const opt = document.createElement('option');
+            opt.value = nombre;
+            datalist.appendChild(opt);
+          });
+        }
+      });
+    }
+
+    // ==========================================
+    // 5. OBTENER GPS DEL CELULAR
+    // ==========================================
+    function iniciarGPS() {
+      const label = document.getElementById('gps-status');
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
+        navigator.geolocation.watchPosition(
           (pos) => {
-            STATE.userLocation = {
-              lat: pos.coords.latitude,
-              lon: pos.coords.longitude
-            };
-            gpsLabel.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-2"></i> Señal GPS lista`;
+            STATE.userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+            label.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800";
+            label.innerHTML = `<i class="fa-solid fa-circle-check mr-1"></i> GPS Activo`;
           },
           () => {
-            gpsLabel.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-600 mr-2"></i> GPS denegado (Modo Manual)`;
-          }
+            label.className = "text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800";
+            label.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Sin GPS (Manual)`;
+          },
+          { enableHighAccuracy: true }
         );
-      } else {
-        gpsLabel.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-600 mr-2"></i> GPS no soportado`;
       }
     }
 
-    // Fórmula Haversine para metros de distancia
-    function calcularDistanciaEnMetros(lat1, lon1, lat2, lon2) {
+    function distanciaHaversine(lat1, lon1, lat2, lon2) {
       const R = 6371e3;
-      const phi1 = lat1 * Math.PI / 180;
-      const phi2 = lat2 * Math.PI / 180;
-      const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-      const deltaLon = (lon2 - lon1) * Math.PI / 180;
-
-      const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
-                Math.cos(phi1) * Math.cos(phi2) *
-                Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // --- RENDERIZADO VISUAL ---
-    function actualizarDashboard() {
-      let totalOficial = 0;
-      let totalVecinal = 0;
+    // ==========================================
+    // 6. LEER Y GUARDAR EN SUPABASE
+    // ==========================================
+    async function sincronizarReportes() {
+      if (supabase) {
+        const { data, error } = await supabase.from('reportes_arbolado').select('*').order('id', { ascending: false }).limit(50);
+        if (!error && data) {
+          STATE.reportes = data;
+          actualizarVisualizaciones();
+        }
+      }
+    }
 
-      STATE.reportes.forEach(rep => {
-        totalVecinal += rep.visibles;
-        const match = STATE.datosOficiales.find(o => o.calle.toUpperCase().includes(rep.calle.toUpperCase()));
-        if (match) totalOficial += match.arboles;
+    document.getElementById('form-relevamiento').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btn-guardar');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`;
+
+      const calle = document.getElementById('input-calle').value.trim().toUpperCase();
+      const altura = parseInt(document.getElementById('input-altura').value);
+      const comuna = parseInt(document.getElementById('input-comuna').value);
+      const arboles_vivos = parseInt(document.getElementById('input-visibles').value) || 0;
+      const cementados = parseInt(document.getElementById('input-cementados').value) || 0;
+      const mutilados = parseInt(document.getElementById('input-mutilados').value) || 0;
+      const alias = document.getElementById('input-alias').value.trim() || "Vecino Anónimo";
+
+      // Coordenadas y validación
+      let lat = -34.6037;
+      let lon = -58.3816;
+      let verificado_gps = false;
+
+      // Buscar si la cuadra está en el dataset oficial para tomar su centroide
+      const match = STATE.datosOficiales.find(d => 
+        d.calle_nombre && d.calle_nombre.toString().toUpperCase().includes(calle) && Math.abs(d.calle_altura - altura) < 100
+      );
+
+      if (match && match.lat && match.long) {
+        lat = match.lat;
+        lon = match.long;
+      }
+
+      if (STATE.userLocation) {
+        const dist = distanciaHaversine(STATE.userLocation.lat, STATE.userLocation.lon, lat, lon);
+        verificado_gps = (dist <= 300); // Verificado si está a menos de 300m
+        if (verificado_gps) {
+          lat = STATE.userLocation.lat;
+          lon = STATE.userLocation.lon;
+        }
+      }
+
+      const nuevoReporte = {
+        calle, altura, comuna, arboles_vivos, cementados, mutilados,
+        usuario_nombre: alias, verificado_gps, lat, lon
+      };
+
+      if (supabase) {
+        const { error } = await supabase.from('reportes_arbolado').insert([nuevoReporte]);
+        if (error) alert("Error al subir a la base de datos: " + error.message);
+        await sincronizarReportes();
+      } else {
+        // Fallback local si no configuró Supabase todavía
+        STATE.reportes.unshift(nuevoReporte);
+        actualizarVisualizaciones();
+      }
+
+      // Resetear contadores
+      document.getElementById('input-visibles').value = 0;
+      document.getElementById('input-cementados').value = 0;
+      document.getElementById('input-mutilados').value = 0;
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Confirmar y Enviar Cuadra</span>`;
+    });
+
+    // ==========================================
+    // 7. ACTUALIZAR DASHBOARD, TABLA Y MAPA
+    // ==========================================
+    function actualizarVisualizaciones() {
+      let totalOficial = 0;
+      let totalVecinos = 0;
+      let totalAlertas = 0;
+
+      STATE.reportes.forEach(r => {
+        totalVecinos += (r.arboles_vivos || 0);
+        totalAlertas += (r.cementados || 0) + (r.mutilados || 0);
+
+        const match = STATE.datosOficiales.find(o => 
+          o.calle_nombre && o.calle_nombre.toString().toUpperCase().includes(r.calle) && Math.abs(o.calle_altura - r.altura) < 100
+        );
+        if (match) {
+          totalOficial += (match.total_arboles || 0);
+        }
       });
 
-      document.getElementById('stat-oficial').innerText = totalOficial || 12;
-      document.getElementById('stat-vecinal').innerText = totalVecinal;
-      const discrepancia = totalOficial - totalVecinal;
-      document.getElementById('stat-discrepancia').innerText = discrepancia > 0 ? `-${discrepancia}` : '0';
+      document.getElementById('stat-oficial').innerText = totalOficial || '--';
+      document.getElementById('stat-vecinal').innerText = totalVecinos;
+      document.getElementById('stat-discrepancia').innerText = totalAlertas;
 
-      // Actualizar Tabla
+      // Tabla
       const tbody = document.getElementById('tabla-reportes-body');
       tbody.innerHTML = '';
-      STATE.reportes.slice().reverse().forEach(r => {
-        const tr = document.createElement('tr');
-        tr.className = "border-b hover:bg-slate-50";
-        tr.innerHTML = `
-          <td class="p-2 font-medium">${r.calle} ${r.altura}</td>
-          <td class="p-2">${r.comuna}</td>
-          <td class="p-2 font-semibold text-emerald-700">${r.visibles}</td>
-          <td class="p-2 text-amber-600">${r.cementados}</td>
-          <td class="p-2">
-            <span class="px-2 py-0.5 text-[10px] rounded-full font-bold ${r.verificado ? 'badge-gps' : 'badge-manual'}">
-              ${r.verificado ? 'GPS OK' : 'Manual'}
-            </span>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
+      if (STATE.reportes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-3 text-center text-slate-400">Aún no hay relevamientos cargados.</td></tr>`;
+      } else {
+        STATE.reportes.slice(0, 10).forEach(r => {
+          const tr = document.createElement('tr');
+          tr.className = "border-b hover:bg-slate-50";
+          tr.innerHTML = `
+            <td class="p-2 font-medium">${r.calle} ${r.altura}</td>
+            <td class="p-2">${r.comuna}</td>
+            <td class="p-2 font-bold text-emerald-700">${r.arboles_vivos || 0}</td>
+            <td class="p-2 text-amber-600 font-semibold">${r.cementados || 0}</td>
+            <td class="p-2 text-[11px] text-slate-500">${r.usuario_nombre || 'Anónimo'}</td>
+            <td class="p-2">
+              <span class="px-2 py-0.5 text-[9px] rounded-full font-bold ${r.verificado_gps ? 'badge-gps' : 'badge-manual'}">
+                ${r.verificado_gps ? 'GPS OK' : 'MANUAL'}
+              </span>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
 
-      // Actualizar Marcadores en Mapa
+      // Marcadores en Mapa
       layerGroup.clearLayers();
-      
-      // Puntos oficiales
-      STATE.datosOficiales.forEach(pt => {
-        L.circleMarker([pt.lat, pt.lon], { color: '#059669', radius: 6 })
-          .bindPopup(`<b>GCBA Oficial</b><br>${pt.calle} ${pt.altura}<br>Árboles: ${pt.arboles}`)
-          .addTo(layerGroup);
-      });
-
-      // Puntos reportados
-      STATE.reportes.forEach(pt => {
-        if (pt.lat && pt.lon) {
-          L.circleMarker([pt.lat, pt.lon], { color: pt.cementados > 0 ? '#dc2626' : '#2563eb', radius: 8 })
-            .bindPopup(`<b>Reporte Vecinal</b><br>${pt.calle} ${pt.altura}<br>Vivos: ${pt.visibles}<br>Cementados: ${pt.cementados}`)
+      STATE.reportes.forEach(r => {
+        if (r.lat && r.lon) {
+          const color = (r.cementados > 0 || r.mutilados > 0) ? '#dc2626' : '#059669';
+          L.circleMarker([r.lat, r.lon], { radius: 7, color: color, fillOpacity: 0.8 })
+            .bindPopup(`<b>${r.calle} ${r.altura}</b><br>Vivos: ${r.arboles_vivos}<br>Cementados: ${r.cementados}<br>Por: ${r.usuario_nombre}`)
             .addTo(layerGroup);
         }
       });
     }
 
-    // --- REGISTRO Y PARSEO CSV ---
-    document.getElementById('csv-file-input').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (file) {
-        Papa.parse(file, {
-          header: true,
-          dynamicTyping: true,
-          skipEmptyLines: true,
-          complete: function(results) {
-            // Se mapean campos comunes de datasets de CABA (ej: 'calle_nombre', 'comuna', 'coord_x', 'coord_y' o 'lat'/'long')
-            const parsedData = results.data.slice(0, 1000).map(row => ({
-              calle: row.calle_nombre || row.calle || row.nom_calle || "Calle Desconocida",
-              altura: row.altura || row.altura_puerta || 0,
-              comuna: row.comuna || 1,
-              lat: row.lat || row.latitud || -34.6037,
-              lon: row.long || row.longitud || -58.3816,
-              arboles: 1
-            }));
-            
-            STATE.datosOficiales = parsedData;
-            actualizarDashboard();
-            alert(`Cargados ${parsedData.length} registros del CSV con éxito.`);
-          }
-        });
-      }
-    });
-
-    // --- SUBMIT DE FORMULARIO ---
-    document.getElementById('form-relevamiento').addEventListener('submit', (e) => {
-      e.preventDefault();
-
-      const calle = document.getElementById('input-calle').value;
-      const altura = parseInt(document.getElementById('input-altura').value);
-      const comuna = parseInt(document.getElementById('input-comuna').value);
-      const visibles = parseInt(document.getElementById('input-visibles').value);
-      const cementados = parseInt(document.getElementById('input-cementados').value);
-      const mutilados = parseInt(document.getElementById('input-mutilados').value);
-
-      // Verificación de proximidad GPS (Tolerancia: 300m de punto aproximado o presencia activa)
-      let lat = -34.6037 + (Math.random() - 0.5) * 0.02; // Coordenada simulada de la cuadra si no hay geocoder
-      let lon = -58.3816 + (Math.random() - 0.5) * 0.02;
-      let verificado = false;
-
-      if (STATE.userLocation) {
-        const distancia = calcularDistanciaEnMetros(STATE.userLocation.lat, STATE.userLocation.lon, lat, lon);
-        verificado = distancia < 500; // Si está a menos de 500 metros
-        lat = STATE.userLocation.lat;
-        lon = STATE.userLocation.lon;
-      }
-
-      STATE.reportes.push({
-        calle, altura, comuna, visibles, cementados, mutilados, lat, lon, verificado
-      });
-
-      e.target.reset();
-      actualizarDashboard();
-    });
-
-    // --- INICIALIZACIÓN ---
+    // ==========================================
+    // 8. INICIO
+    // ==========================================
     window.addEventListener('DOMContentLoaded', () => {
-      obtenerUbicacion();
-      
-      // Render de usuario simulado
-      document.getElementById('user-session').innerHTML = `
-        <span class="text-emerald-100"><i class="fa-solid fa-user-circle mr-1"></i> ${STATE.user.nombre}</span>
-      `;
-
-      actualizarDashboard();
+      iniciarGPS();
+      cargarDatasetsLocales();
+      sincronizarReportes();
+      // Refresco periódico cada 15 segundos para recibir reportes de otros usuarios
+      setInterval(sincronizarReportes, 15000);
     });
   </script>
 </body>
