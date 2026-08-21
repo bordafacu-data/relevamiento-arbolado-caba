@@ -33,15 +33,53 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
 
+  <!-- MODAL DE IDENTIFICACIÓN / BIENVENIDA -->
+  <div id="modal-auth" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100">
+      <div class="text-center mb-4">
+        <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-2 text-xl">
+          <i class="fa-solid fa-tree"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-800">¡Bienvenido al Relevamiento!</h3>
+        <p class="text-xs text-slate-500 mt-1">Identificate para registrar tus cuadras relevadas.</p>
+      </div>
+
+      <form id="form-auth" class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Nombre / Alias *</label>
+          <input type="text" id="auth-nombre" placeholder="Ej: Martín o Vecino Comuna 3" required
+            class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Email (Opcional)</label>
+          <input type="email" id="auth-email" placeholder="Para guardar tu historial"
+            class="w-full px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <button type="submit" class="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 rounded-xl transition duration-150 shadow-md text-sm mt-2">
+          Comenzar a Relevar
+        </button>
+        <button type="button" onclick="entrarAnonimo()" class="w-full text-center text-xs text-slate-400 hover:text-slate-600 py-1">
+          Continuar de forma anónima
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- NAVBAR -->
-  <header class="bg-emerald-800 text-white shadow-md sticky top-0 z-50">
+  <header class="bg-emerald-800 text-white shadow-md sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center space-x-2">
         <i class="fa-solid fa-tree text-2xl text-emerald-300"></i>
         <span class="font-bold text-lg tracking-tight">Arbolado CABA <span class="text-[10px] font-normal bg-emerald-700 px-2 py-0.5 rounded text-emerald-200">Vecinal</span></span>
       </div>
-      <div id="user-display" class="flex items-center space-x-2 text-xs">
-        <input type="text" id="input-alias" placeholder="Tu Nombre/Alias" class="px-2 py-1 rounded text-slate-800 bg-emerald-50 text-xs w-28 focus:outline-none border-none">
+      
+      <!-- PERFIL DE USUARIO ACTIVO -->
+      <div id="user-badge" class="flex items-center space-x-2 bg-emerald-900/60 px-3 py-1.5 rounded-xl text-xs border border-emerald-700/50">
+        <i class="fa-solid fa-user text-emerald-300"></i>
+        <span id="user-name-display" class="font-medium text-emerald-100 max-w-[110px] truncate">Cargando...</span>
+        <button onclick="abrirModalAuth()" title="Cambiar usuario" class="text-emerald-400 hover:text-white ml-1">
+          <i class="fa-solid fa-pen-to-square text-[11px]"></i>
+        </button>
       </div>
     </div>
   </header>
@@ -63,19 +101,15 @@
         <p class="text-xs text-slate-500 mb-4">Caminá por la cuadra y sumá con los botones <b>+</b> cada árbol observado.</p>
 
         <form id="form-relevamiento" class="space-y-4">
-
-          
-    <!-- CALLE CON AUTOCOMPLETADO FLUIDO -->
+          <!-- CALLE CON AUTOCOMPLETADO FLUIDO -->
           <div class="relative">
             <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Calle</label>
             <input type="text" id="input-calle" autocomplete="off" placeholder="Empezá a escribir la calle..." required
               class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 uppercase focus:outline-none bg-white">
             
-            <!-- Contenedor desplegable de sugerencias -->
             <div id="lista-sugerencias" class="hidden absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl z-50 divide-y divide-slate-100 text-xs">
             </div>
           </div>
-        
 
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -83,7 +117,7 @@
               <input type="number" id="input-altura" placeholder="Ej: 1200" step="100" required
                 class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
             </div>
-          <div>
+            <div>
               <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Comuna (Opcional)</label>
               <input type="number" id="input-comuna" min="1" max="15" placeholder="Ej: 3 (Optativo)"
                 class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
@@ -200,14 +234,13 @@
   </main>
 
   <script>
-    // 1. CREDENCIALES DE SUPABASE (Pegá tus datos aquí)
+    // 1. CREDENCIALES DE SUPABASE
     const SUPABASE_URL = 'https://lujbpyzetpuifondqkxy.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_EHi7TVLM0JTpUjmmPnpl1w_ytwcl_7O';
     
-    // Inicializar cliente sin colisionar con la variable window.supabase
     let supabaseClient = null;
     try {
-      if (typeof window.supabase !== 'undefined' && SUPABASE_URL.startsWith('http')) {
+      if (typeof window.supabase !== 'undefined') {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       }
     } catch (err) {
@@ -218,11 +251,51 @@
     const STATE = {
       userLocation: null,
       datosOficiales: [],
-      reportes: []
+      reportes: [],
+      currentUser: { nombre: 'Vecino Anónimo', email: '' }
     };
 
     let map = null;
     let layerGroup = null;
+
+    // GESTIÓN DE USUARIOS (LOCALSTORAGE & MODAL)
+    function verificarUsuario() {
+      const guardado = localStorage.getItem('arbolado_user');
+      if (guardado) {
+        STATE.currentUser = JSON.parse(guardado);
+        document.getElementById('user-name-display').innerText = STATE.currentUser.nombre;
+      } else {
+        abrirModalAuth();
+      }
+    }
+
+    function abrirModalAuth() {
+      document.getElementById('modal-auth').classList.remove('hidden');
+      document.getElementById('auth-nombre').value = STATE.currentUser.nombre !== 'Vecino Anónimo' ? STATE.currentUser.nombre : '';
+      document.getElementById('auth-email').value = STATE.currentUser.email || '';
+    }
+
+    function cerrarModalAuth() {
+      document.getElementById('modal-auth').classList.add('hidden');
+    }
+
+    document.getElementById('form-auth').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nombre = document.getElementById('auth-nombre').value.trim() || 'Vecino Anónimo';
+      const email = document.getElementById('auth-email').value.trim();
+
+      STATE.currentUser = { nombre, email };
+      localStorage.setItem('arbolado_user', JSON.stringify(STATE.currentUser));
+      document.getElementById('user-name-display').innerText = nombre;
+      cerrarModalAuth();
+    });
+
+    function entrarAnonimo() {
+      STATE.currentUser = { nombre: 'Vecino Anónimo', email: '' };
+      localStorage.setItem('arbolado_user', JSON.stringify(STATE.currentUser));
+      document.getElementById('user-name-display').innerText = 'Anónimo';
+      cerrarModalAuth();
+    }
 
     // 2. FUNCIÓN DE INCREMENTO / DECREMENTO (+ / -)
     function alterarValor(inputId, delta) {
@@ -250,7 +323,7 @@
       }, 300);
     }
 
-   // 4. CARGA AUTOMÁTICA DE CSVs Y AUTOCOMPLETADO EXACTO
+    // 4. CARGA AUTOMÁTICA DE CSVs Y AUTOCOMPLETADO EXACTO
     let listaCallesOficiales = [];
 
     async function cargarDatasetsLocales() {
@@ -269,7 +342,6 @@
             const el = document.getElementById('total-cuadras-oficiales');
             if (el) el.innerText = `${STATE.datosOficiales.length} cuadras`;
             
-            // Respaldo secundario si falla el callejero
             if (listaCallesOficiales.length === 0) {
               const callesDesdeArbolado = new Set();
               results.data.forEach(r => {
@@ -289,7 +361,7 @@
         }
       });
 
-      // 2. Cargar callejero_app.csv usando tu columna 'nomoficial'
+      // 2. Cargar callejero_app.csv
       Papa.parse("callejero_app.csv", {
         download: true,
         header: true,
@@ -297,7 +369,6 @@
         complete: function(results) {
           const nombres = new Set();
           results.data.forEach(r => {
-            // Lee específicamente 'nomoficial' o variaciones comunes
             const nombre = r.nomoficial || r.NOMOFICIAL || r.nom_oficial || r.calle_nombre;
             if (nombre && typeof nombre === 'string') {
               nombres.add(nombre.trim().toUpperCase());
@@ -307,16 +378,12 @@
           if (nombres.size > 0) {
             listaCallesOficiales = Array.from(nombres).sort();
             if (inputCalle) inputCalle.placeholder = "Empezá a escribir la calle...";
-            console.log(`Calles oficiales listas: ${listaCallesOficiales.length}`);
           }
-        },
-        error: function(err) {
-          console.warn("Error leyendo callejero_app.csv:", err);
         }
       });
     }
 
-    // LÓGICA DE SUGERENCIAS AL ESCRIBIR EN EL CAMPO DE CALLE
+    // BUSCADOR EN VIVO DE CALLES
     const inputCalle = document.getElementById('input-calle');
     const sugerenciasContainer = document.getElementById('lista-sugerencias');
 
@@ -357,14 +424,12 @@
         sugerenciasContainer.classList.remove('hidden');
       });
 
-      // Ocultar la lista si se hace clic afuera
       document.addEventListener('click', (e) => {
         if (!inputCalle.contains(e.target) && !sugerenciasContainer.contains(e.target)) {
           sugerenciasContainer.classList.add('hidden');
         }
       });
     }
-   
 
     // 5. GEOLOCALIZACIÓN
     function iniciarGPS() {
@@ -418,20 +483,17 @@
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`;
 
-
       const calle = document.getElementById('input-calle').value.trim().toUpperCase();
       const altura = parseInt(document.getElementById('input-altura').value);
       let comuna = parseInt(document.getElementById('input-comuna').value) || null;
       const arboles_vivos = parseInt(document.getElementById('input-visibles').value) || 0;
       const cementados = parseInt(document.getElementById('input-cementados').value) || 0;
       const mutilados = parseInt(document.getElementById('input-mutilados').value) || 0;
-      const alias = document.getElementById('input-alias').value.trim() || "Vecino Anónimo";
 
       let lat = -34.6037;
       let lon = -58.3816;
       let verificado_gps = false;
 
-      // Buscar coincidencia en el censo para lat/lon y autocompletar comuna si quedó vacía
       const match = STATE.datosOficiales.find(d => 
         d.calle_nombre && d.calle_nombre.toString().toUpperCase().includes(calle) && Math.abs(d.calle_altura - altura) < 100
       );
@@ -456,13 +518,18 @@
       }
 
       const nuevoReporte = {
-        calle, altura, comuna, arboles_vivos, cementados, mutilados,
-        usuario_nombre: alias, verificado_gps, lat, lon
+        calle, 
+        altura, 
+        comuna: comuna ? parseInt(comuna) : null, 
+        arboles_vivos, 
+        cementados, 
+        mutilados,
+        usuario_nombre: STATE.currentUser.nombre,
+        verificado_gps, 
+        lat, 
+        lon
       };
 
-
-
-      
       if (supabaseClient) {
         const { error } = await supabaseClient.from('reportes_arbolado').insert([nuevoReporte]);
         if (error) alert("Error Supabase: " + error.message);
@@ -517,7 +584,7 @@
             tr.className = "border-b hover:bg-slate-50";
             tr.innerHTML = `
               <td class="p-2 font-medium">${r.calle} ${r.altura}</td>
-              <td class="p-2">${r.comuna}</td>
+              <td class="p-2">${r.comuna ? 'Comuna ' + r.comuna : '-'}</td>
               <td class="p-2 font-bold text-emerald-700">${r.arboles_vivos || 0}</td>
               <td class="p-2 text-amber-600 font-semibold">${r.cementados || 0}</td>
               <td class="p-2 text-[11px] text-slate-500">${r.usuario_nombre || 'Anónimo'}</td>
@@ -548,6 +615,7 @@
 
     // 8. ARRANQUE
     window.addEventListener('DOMContentLoaded', () => {
+      verificarUsuario();
       inicializarMapa();
       iniciarGPS();
       cargarDatasetsLocales();
