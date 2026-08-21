@@ -250,11 +250,14 @@
       }, 300);
     }
 
-    // 4. CARGA AUTOMÁTICA DE CSVs Y AUTOCOMPLETADO FLUIDO
+   // 4. CARGA AUTOMÁTICA DE CSVs Y AUTOCOMPLETADO EXACTO
     let listaCallesOficiales = [];
 
     async function cargarDatasetsLocales() {
-      // Cargar base de arbolado por cuadras
+      const inputCalle = document.getElementById('input-calle');
+      if (inputCalle) inputCalle.placeholder = "Cargando calles oficiales...";
+
+      // 1. Cargar arbolado_cuadras.csv
       Papa.parse("arbolado_cuadras.csv", {
         download: true,
         header: true,
@@ -265,6 +268,18 @@
             STATE.datosOficiales = results.data;
             const el = document.getElementById('total-cuadras-oficiales');
             if (el) el.innerText = `${STATE.datosOficiales.length} cuadras`;
+            
+            // Respaldo secundario si falla el callejero
+            if (listaCallesOficiales.length === 0) {
+              const callesDesdeArbolado = new Set();
+              results.data.forEach(r => {
+                if (r.calle_nombre) callesDesdeArbolado.add(String(r.calle_nombre).trim().toUpperCase());
+              });
+              if (callesDesdeArbolado.size > 0) {
+                listaCallesOficiales = Array.from(callesDesdeArbolado).sort();
+                if (inputCalle) inputCalle.placeholder = "Empezá a escribir la calle...";
+              }
+            }
             actualizarVisualizaciones();
           }
         },
@@ -274,7 +289,7 @@
         }
       });
 
-      // Cargar callejero con detección automática de nombres de columnas
+      // 2. Cargar callejero_app.csv usando tu columna 'nomoficial'
       Papa.parse("callejero_app.csv", {
         download: true,
         header: true,
@@ -282,14 +297,21 @@
         complete: function(results) {
           const nombres = new Set();
           results.data.forEach(r => {
-            const n = r.calle_nombre || r.nom_oficial || r.calle || r.CALLE || r.nombre || Object.values(r)[0];
-            if (n && typeof n === 'string') {
-              nombres.add(n.trim().toUpperCase());
+            // Lee específicamente 'nomoficial' o variaciones comunes
+            const nombre = r.nomoficial || r.NOMOFICIAL || r.nom_oficial || r.calle_nombre;
+            if (nombre && typeof nombre === 'string') {
+              nombres.add(nombre.trim().toUpperCase());
             }
           });
           
-          listaCallesOficiales = Array.from(nombres).sort();
-          console.log(`Calles cargadas para autocompletado: ${listaCallesOficiales.length}`);
+          if (nombres.size > 0) {
+            listaCallesOficiales = Array.from(nombres).sort();
+            if (inputCalle) inputCalle.placeholder = "Empezá a escribir la calle...";
+            console.log(`Calles oficiales listas: ${listaCallesOficiales.length}`);
+          }
+        },
+        error: function(err) {
+          console.warn("Error leyendo callejero_app.csv:", err);
         }
       });
     }
@@ -319,13 +341,14 @@
 
         coincidencias.forEach(calle => {
           const item = document.createElement('div');
-          item.className = "px-3 py-2 hover:bg-emerald-50 cursor-pointer text-slate-700 font-medium transition flex items-center justify-between";
+          item.className = "px-3 py-2 hover:bg-emerald-50 cursor-pointer text-slate-700 font-medium transition flex items-center justify-between border-b border-slate-100 last:border-none";
           item.innerHTML = `<span>${calle}</span> <i class="fa-solid fa-arrow-turn-down text-slate-300 text-[10px]"></i>`;
           
           item.addEventListener('click', () => {
             inputCalle.value = calle;
             sugerenciasContainer.classList.add('hidden');
-            document.getElementById('input-altura').focus();
+            const inputAltura = document.getElementById('input-altura');
+            if (inputAltura) inputAltura.focus();
           });
 
           sugerenciasContainer.appendChild(item);
@@ -334,7 +357,7 @@
         sugerenciasContainer.classList.remove('hidden');
       });
 
-      // Ocultar la lista si se hace clic fuera del buscador
+      // Ocultar la lista si se hace clic afuera
       document.addEventListener('click', (e) => {
         if (!inputCalle.contains(e.target) && !sugerenciasContainer.contains(e.target)) {
           sugerenciasContainer.classList.add('hidden');
