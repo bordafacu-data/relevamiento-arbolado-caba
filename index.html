@@ -63,13 +63,19 @@
         <p class="text-xs text-slate-500 mb-4">Caminá por la cuadra y sumá con los botones <b>+</b> cada árbol observado.</p>
 
         <form id="form-relevamiento" class="space-y-4">
-          <!-- CALLE Y ALTURA CON AUTOCOMPLETADO -->
-          <div>
+
+          
+    <!-- CALLE CON AUTOCOMPLETADO FLUIDO -->
+          <div class="relative">
             <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Calle</label>
-            <input type="text" id="input-calle" list="calles-datalist" placeholder="Ej: CORRIENTES AV." required
-              class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 uppercase focus:outline-none">
-            <datalist id="calles-datalist"></datalist>
+            <input type="text" id="input-calle" autocomplete="off" placeholder="Empezá a escribir la calle..." required
+              class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 uppercase focus:outline-none bg-white">
+            
+            <!-- Contenedor desplegable de sugerencias -->
+            <div id="lista-sugerencias" class="hidden absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl z-50 divide-y divide-slate-100 text-xs">
+            </div>
           </div>
+        
 
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -244,8 +250,11 @@
       }, 300);
     }
 
-    // 4. CARGA AUTOMÁTICA DE CSVs
+    // 4. CARGA AUTOMÁTICA DE CSVs Y AUTOCOMPLETADO FLUIDO
+    let listaCallesOficiales = [];
+
     async function cargarDatasetsLocales() {
+      // Cargar base de arbolado por cuadras
       Papa.parse("arbolado_cuadras.csv", {
         download: true,
         header: true,
@@ -265,26 +274,74 @@
         }
       });
 
+      // Cargar callejero con detección automática de nombres de columnas
       Papa.parse("callejero_app.csv", {
         download: true,
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
-          const datalist = document.getElementById('calles-datalist');
-          if (!datalist) return;
           const nombres = new Set();
           results.data.forEach(r => {
-            const n = r.calle_nombre || r.nom_oficial || r.calle || Object.values(r)[0];
-            if (n) nombres.add(n.toString().trim().toUpperCase());
+            const n = r.calle_nombre || r.nom_oficial || r.calle || r.CALLE || r.nombre || Object.values(r)[0];
+            if (n && typeof n === 'string') {
+              nombres.add(n.trim().toUpperCase());
+            }
           });
-          nombres.forEach(nombre => {
-            const opt = document.createElement('option');
-            opt.value = nombre;
-            datalist.appendChild(opt);
-          });
+          
+          listaCallesOficiales = Array.from(nombres).sort();
+          console.log(`Calles cargadas para autocompletado: ${listaCallesOficiales.length}`);
         }
       });
     }
+
+    // LÓGICA DE SUGERENCIAS AL ESCRIBIR EN EL CAMPO DE CALLE
+    const inputCalle = document.getElementById('input-calle');
+    const sugerenciasContainer = document.getElementById('lista-sugerencias');
+
+    if (inputCalle && sugerenciasContainer) {
+      inputCalle.addEventListener('input', function() {
+        const query = this.value.trim().toUpperCase();
+        sugerenciasContainer.innerHTML = '';
+
+        if (query.length < 2) {
+          sugerenciasContainer.classList.add('hidden');
+          return;
+        }
+
+        const coincidencias = listaCallesOficiales
+          .filter(c => c.includes(query))
+          .slice(0, 8);
+
+        if (coincidencias.length === 0) {
+          sugerenciasContainer.classList.add('hidden');
+          return;
+        }
+
+        coincidencias.forEach(calle => {
+          const item = document.createElement('div');
+          item.className = "px-3 py-2 hover:bg-emerald-50 cursor-pointer text-slate-700 font-medium transition flex items-center justify-between";
+          item.innerHTML = `<span>${calle}</span> <i class="fa-solid fa-arrow-turn-down text-slate-300 text-[10px]"></i>`;
+          
+          item.addEventListener('click', () => {
+            inputCalle.value = calle;
+            sugerenciasContainer.classList.add('hidden');
+            document.getElementById('input-altura').focus();
+          });
+
+          sugerenciasContainer.appendChild(item);
+        });
+
+        sugerenciasContainer.classList.remove('hidden');
+      });
+
+      // Ocultar la lista si se hace clic fuera del buscador
+      document.addEventListener('click', (e) => {
+        if (!inputCalle.contains(e.target) && !sugerenciasContainer.contains(e.target)) {
+          sugerenciasContainer.classList.add('hidden');
+        }
+      });
+    }
+   
 
     // 5. GEOLOCALIZACIÓN
     function iniciarGPS() {
