@@ -233,6 +233,19 @@
     </section>
   </main>
 
+<!-- TOAST / CARTEL DE CONFIRMACIÓN -->
+  <div id="toast-exito" class="fixed bottom-6 right-6 left-6 md:left-auto md:w-80 bg-emerald-800 text-white p-4 rounded-2xl shadow-2xl border border-emerald-600 z-50 transform translate-y-28 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3">
+    <div class="w-10 h-10 bg-emerald-600/60 rounded-xl flex items-center justify-center text-xl text-emerald-200">
+      <i class="fa-solid fa-tree animate-bounce"></i>
+    </div>
+    <div>
+      <h4 class="font-bold text-sm">¡Registrado con éxito!</h4>
+      <p class="text-xs text-emerald-200">¡Gracias por sumar datos a la comunidad!</p>
+    </div>
+  </div>
+
+
+  
   <script>
     // 1. CREDENCIALES DE SUPABASE
     const SUPABASE_URL = 'https://lujbpyzetpuifondqkxy.supabase.co';
@@ -477,18 +490,25 @@
       }
     }
 
-    document.getElementById('form-relevamiento').addEventListener('submit', async (e) => {
+   document.getElementById('form-relevamiento').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('btn-guardar');
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`;
 
-      const calle = document.getElementById('input-calle').value.trim().toUpperCase();
-      const altura = parseInt(document.getElementById('input-altura').value);
-      let comuna = parseInt(document.getElementById('input-comuna').value) || null;
-      const arboles_vivos = parseInt(document.getElementById('input-visibles').value) || 0;
-      const cementados = parseInt(document.getElementById('input-cementados').value) || 0;
-      const mutilados = parseInt(document.getElementById('input-mutilados').value) || 0;
+      const inputCalle = document.getElementById('input-calle');
+      const inputAltura = document.getElementById('input-altura');
+      const inputComuna = document.getElementById('input-comuna');
+      const inputVisibles = document.getElementById('input-visibles');
+      const inputCementados = document.getElementById('input-cementados');
+      const inputMutilados = document.getElementById('input-mutilados');
+
+      const calle = inputCalle.value.trim().toUpperCase();
+      const altura = parseInt(inputAltura.value);
+      let comuna = parseInt(inputComuna.value) || null;
+      const arboles_vivos = parseInt(inputVisibles.value) || 0;
+      const cementados = parseInt(inputCementados.value) || 0;
+      const mutilados = parseInt(inputMutilados.value) || 0;
 
       let lat = -34.6037;
       let lon = -58.3816;
@@ -505,6 +525,7 @@
         }
         if (!comuna && match.comuna) {
           comuna = parseInt(match.comuna);
+          inputComuna.value = comuna;
         }
       }
 
@@ -539,12 +560,52 @@
         actualizarVisualizaciones();
       }
 
-      document.getElementById('input-visibles').value = 0;
-      document.getElementById('input-cementados').value = 0;
-      document.getElementById('input-mutilados').value = 0;
+      // Mostrar cartel de éxito
+      mostrarToastExito();
+
+      // Reiniciar contadores a 0
+      inputVisibles.value = 0;
+      inputCementados.value = 0;
+      inputMutilados.value = 0;
+
+      // Mantener calle y comuna, limpiar altura y sugerir siguiente cuadra
+      inputAltura.value = '';
+      
+      if (STATE.userLocation && STATE.datosOficiales.length > 0) {
+        let cuadraMasCercana = null;
+        let menorDist = Infinity;
+
+        STATE.datosOficiales.forEach(d => {
+          if (d.calle_nombre && d.calle_nombre.toString().toUpperCase().includes(calle) && d.lat && d.long) {
+            const dist = distanciaHaversine(STATE.userLocation.lat, STATE.userLocation.lon, d.lat, d.long);
+            if (dist < menorDist && d.calle_altura !== altura) {
+              menorDist = dist;
+              cuadraMasCercana = d;
+            }
+          }
+        });
+
+        if (cuadraMasCercana && menorDist < 250) {
+          inputAltura.placeholder = `Siguiente: ~${cuadraMasCercana.calle_altura}`;
+        } else {
+          inputAltura.placeholder = "Ej: 1300";
+        }
+      }
+
+      inputAltura.focus();
+
       btn.disabled = false;
       btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Confirmar y Enviar Cuadra</span>`;
     });
+
+    function mostrarToastExito() {
+      const toast = document.getElementById('toast-exito');
+      if (!toast) return;
+      toast.classList.remove('translate-y-28', 'opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('translate-y-28', 'opacity-0', 'pointer-events-none');
+      }, 3200);
+    }
 
     // 7. ACTUALIZACIÓN VISUAL
     function actualizarVisualizaciones() {
@@ -623,5 +684,9 @@
       setInterval(sincronizarReportes, 15000);
     });
   </script>
+
+
+
+   
 </body>
 </html>
