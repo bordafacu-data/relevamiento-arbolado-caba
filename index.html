@@ -1,3 +1,4 @@
+HTML
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -31,7 +32,18 @@
     .no-select { user-select: none; -webkit-user-select: none; }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col relative">
+
+  <!-- TOAST / CARTEL DE CONFIRMACIÓN ARRIBA (VISIBLE EN MÓVILES) -->
+  <div id="toast-exito" class="fixed top-16 left-4 right-4 md:left-auto md:right-6 md:w-80 bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl border-2 border-emerald-500 z-50 transform -translate-y-32 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3">
+    <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-xl text-white shadow-inner flex-shrink-0">
+      <i class="fa-solid fa-tree animate-bounce"></i>
+    </div>
+    <div>
+      <h4 class="font-bold text-sm text-emerald-100">¡Registrado con éxito!</h4>
+      <p class="text-[11px] text-emerald-200">¡Gracias por sumar datos a la comunidad!</p>
+    </div>
+  </div>
 
   <!-- MODAL DE IDENTIFICACIÓN / BIENVENIDA -->
   <div id="modal-auth" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
@@ -87,7 +99,7 @@
   <!-- CONTENEDOR PRINCIPAL -->
   <main class="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow w-full">
 
-    <!-- PANEL IZQUIERDO: RELEVAMIENTO PASO A PASO -->
+    <!-- PANEL IZQUIERDO: RELEVAMIENTO -->
     <section class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
       <div>
         <div class="flex justify-between items-center mb-2">
@@ -124,7 +136,7 @@
             </div>
           </div>
 
-          <!-- CONTADORES TÁCTILES CON BOTONES + / - -->
+          <!-- CONTADORES TÁCTILES -->
           <div class="space-y-3 pt-2">
             
             <!-- Árboles Vivos -->
@@ -153,7 +165,7 @@
               </div>
             </div>
 
-            <!-- Poda Mutilante / Daño -->
+            <!-- Poda Mutilante -->
             <div class="bg-red-50/60 p-3 rounded-xl border border-red-100 flex items-center justify-between">
               <div>
                 <span class="text-xs font-bold text-red-900 block">Poda Mutilante</span>
@@ -180,10 +192,9 @@
       </div>
     </section>
 
-    <!-- PANEL DERECHO: MAPA Y COMPARATIVA DE DATOS -->
+    <!-- PANEL DERECHO: MAPA Y MÉTRICAS -->
     <section class="lg:col-span-2 space-y-4">
 
-      <!-- MAPA -->
       <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex justify-between items-center mb-2 px-1">
           <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Mapa Interactivo Comunitario</h3>
@@ -211,7 +222,7 @@
         </div>
       </div>
 
-      <!-- ÚLTIMOS REPORTES DE LA COMUNIDAD -->
+      <!-- TABLA DE REPORTES -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-xs text-slate-700 mb-2 uppercase tracking-wide">Últimos Relevamientos en la Nube</h3>
         <table class="w-full text-left text-xs text-slate-600">
@@ -233,19 +244,6 @@
     </section>
   </main>
 
-<!-- TOAST / CARTEL DE CONFIRMACIÓN -->
-  <div id="toast-exito" class="fixed bottom-6 right-6 left-6 md:left-auto md:w-80 bg-emerald-800 text-white p-4 rounded-2xl shadow-2xl border border-emerald-600 z-50 transform translate-y-28 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3">
-    <div class="w-10 h-10 bg-emerald-600/60 rounded-xl flex items-center justify-center text-xl text-emerald-200">
-      <i class="fa-solid fa-tree animate-bounce"></i>
-    </div>
-    <div>
-      <h4 class="font-bold text-sm">¡Registrado con éxito!</h4>
-      <p class="text-xs text-emerald-200">¡Gracias por sumar datos a la comunidad!</p>
-    </div>
-  </div>
-
-
-  
   <script>
     // 1. CREDENCIALES DE SUPABASE
     const SUPABASE_URL = 'https://lujbpyzetpuifondqkxy.supabase.co';
@@ -271,7 +269,7 @@
     let map = null;
     let layerGroup = null;
 
-    // GESTIÓN DE USUARIOS (LOCALSTORAGE & MODAL)
+    // GESTIÓN DE USUARIOS
     function verificarUsuario() {
       const guardado = localStorage.getItem('arbolado_user');
       if (guardado) {
@@ -310,7 +308,6 @@
       cerrarModalAuth();
     }
 
-    // 2. FUNCIÓN DE INCREMENTO / DECREMENTO (+ / -)
     function alterarValor(inputId, delta) {
       const input = document.getElementById(inputId);
       let valorActual = parseInt(input.value) || 0;
@@ -318,7 +315,6 @@
       input.value = valorActual;
     }
 
-    // 3. INICIALIZACIÓN ROBUSTA DEL MAPA LEAFLET
     function inicializarMapa() {
       if (map !== null) return;
       
@@ -336,14 +332,13 @@
       }, 300);
     }
 
-    // 4. CARGA AUTOMÁTICA DE CSVs Y AUTOCOMPLETADO EXACTO
+    // 4. CARGA CSVs
     let listaCallesOficiales = [];
 
     async function cargarDatasetsLocales() {
       const inputCalle = document.getElementById('input-calle');
       if (inputCalle) inputCalle.placeholder = "Cargando calles oficiales...";
 
-      // 1. Cargar arbolado_cuadras.csv
       Papa.parse("arbolado_cuadras.csv", {
         download: true,
         header: true,
@@ -374,7 +369,6 @@
         }
       });
 
-      // 2. Cargar callejero_app.csv
       Papa.parse("callejero_app.csv", {
         download: true,
         header: true,
@@ -396,7 +390,7 @@
       });
     }
 
-    // BUSCADOR EN VIVO DE CALLES
+    // BUSCADOR CALLES
     const inputCalle = document.getElementById('input-calle');
     const sugerenciasContainer = document.getElementById('lista-sugerencias');
 
@@ -427,8 +421,6 @@
           item.addEventListener('click', () => {
             inputCalle.value = calle;
             sugerenciasContainer.classList.add('hidden');
-            const inputAltura = document.getElementById('input-altura');
-            if (inputAltura) inputAltura.focus();
           });
 
           sugerenciasContainer.appendChild(item);
@@ -444,7 +436,7 @@
       });
     }
 
-    // 5. GEOLOCALIZACIÓN
+    // GEOLOCALIZACIÓN
     function iniciarGPS() {
       const label = document.getElementById('gps-status');
       if (navigator.geolocation) {
@@ -475,7 +467,7 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // 6. SINCRONIZACIÓN SUPABASE
+    // SINCRONIZACIÓN Y GUARDADO
     async function sincronizarReportes() {
       if (supabaseClient) {
         try {
@@ -490,7 +482,7 @@
       }
     }
 
-   document.getElementById('form-relevamiento').addEventListener('submit', async (e) => {
+    document.getElementById('form-relevamiento').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('btn-guardar');
       btn.disabled = true;
@@ -560,40 +552,17 @@
         actualizarVisualizaciones();
       }
 
-      // Mostrar cartel de éxito
+      // Cartel visual arriba
       mostrarToastExito();
 
-      // Reiniciar contadores a 0
+      // Reiniciar contadores
       inputVisibles.value = 0;
       inputCementados.value = 0;
       inputMutilados.value = 0;
 
-      // Mantener calle y comuna, limpiar altura y sugerir siguiente cuadra
+      // Mantener calle y comuna, vaciar altura
       inputAltura.value = '';
       
-      if (STATE.userLocation && STATE.datosOficiales.length > 0) {
-        let cuadraMasCercana = null;
-        let menorDist = Infinity;
-
-        STATE.datosOficiales.forEach(d => {
-          if (d.calle_nombre && d.calle_nombre.toString().toUpperCase().includes(calle) && d.lat && d.long) {
-            const dist = distanciaHaversine(STATE.userLocation.lat, STATE.userLocation.lon, d.lat, d.long);
-            if (dist < menorDist && d.calle_altura !== altura) {
-              menorDist = dist;
-              cuadraMasCercana = d;
-            }
-          }
-        });
-
-        if (cuadraMasCercana && menorDist < 250) {
-          inputAltura.placeholder = `Siguiente: ~${cuadraMasCercana.calle_altura}`;
-        } else {
-          inputAltura.placeholder = "Ej: 1300";
-        }
-      }
-
-      inputAltura.focus();
-
       btn.disabled = false;
       btn.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> <span>Confirmar y Enviar Cuadra</span>`;
     });
@@ -601,13 +570,13 @@
     function mostrarToastExito() {
       const toast = document.getElementById('toast-exito');
       if (!toast) return;
-      toast.classList.remove('translate-y-28', 'opacity-0', 'pointer-events-none');
+      toast.classList.remove('-translate-y-32', 'opacity-0', 'pointer-events-none');
       setTimeout(() => {
-        toast.classList.add('translate-y-28', 'opacity-0', 'pointer-events-none');
-      }, 3200);
+        toast.classList.add('-translate-y-32', 'opacity-0', 'pointer-events-none');
+      }, 3500);
     }
 
-    // 7. ACTUALIZACIÓN VISUAL
+    // ACTUALIZACIÓN VISUAL
     function actualizarVisualizaciones() {
       let totalOficial = 0;
       let totalVecinos = 0;
@@ -633,7 +602,6 @@
       if (elVecinal) elVecinal.innerText = totalVecinos;
       if (elDiscrepancia) elDiscrepancia.innerText = totalAlertas;
 
-      // Tabla
       const tbody = document.getElementById('tabla-reportes-body');
       if (tbody) {
         tbody.innerHTML = '';
@@ -660,7 +628,6 @@
         }
       }
 
-      // Marcadores en Mapa
       if (layerGroup) {
         layerGroup.clearLayers();
         STATE.reportes.forEach(r => {
@@ -674,7 +641,6 @@
       }
     }
 
-    // 8. ARRANQUE
     window.addEventListener('DOMContentLoaded', () => {
       verificarUsuario();
       inicializarMapa();
@@ -684,9 +650,5 @@
       setInterval(sincronizarReportes, 15000);
     });
   </script>
-
-
-
-   
 </body>
 </html>
