@@ -89,7 +89,7 @@
         </div>
       </div>
 
-      <!-- FORMULARIO DE CONTACTO OCULTO (Vía Formspree) -->
+      <!-- FORMULARIO DE CONTACTO (Formspree) -->
       <div class="mt-4">
         <h4 class="font-bold text-slate-800 text-xs mb-2 flex items-center">
           <i class="fa-solid fa-envelope text-emerald-600 mr-1.5"></i> Enviar consulta o feedback
@@ -150,7 +150,7 @@
       </div>
       
       <div class="flex items-center space-x-2">
-        <!-- BOTÓN MÁS INFO / BIO -->
+        <!-- BOTÓN MÁS INFO -->
         <button onclick="abrirModalInfo()" title="Más Información" class="w-8 h-8 rounded-full bg-emerald-700 hover:bg-emerald-600 text-emerald-200 hover:text-white flex items-center justify-center transition text-sm">
           <i class="fa-solid fa-info"></i>
         </button>
@@ -269,7 +269,7 @@
       <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex justify-between items-center mb-2 px-1">
           <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Mapa Interactivo Comunitario</h3>
-          <span class="text-[11px] text-slate-400">Verde: Oficial | Azul: Reporte Vecinal | Rojo: Con Alerta</span>
+          <span class="text-[11px] text-slate-400">Azul: Reporte Vecinal | Rojo: Con Alerta (Cementado/Poda)</span>
         </div>
         <div id="map"></div>
       </div>
@@ -289,7 +289,7 @@
         <div class="bg-white p-3.5 rounded-xl border border-slate-200 text-center">
           <span class="text-[11px] text-red-600 font-semibold uppercase">Déficit / Alertas</span>
           <div id="stat-discrepancia" class="text-xl md:text-2xl font-black text-red-600 mt-0.5">--</div>
-          <span class="text-[10px] text-slate-400">Tapeados o faltantes</span>
+          <span class="text-[10px] text-slate-400">Tapeados o mutilados</span>
         </div>
       </div>
 
@@ -339,6 +339,30 @@
 
     let map = null;
     let layerGroup = null;
+
+    // Normalizador de texto: quita tildes, comas, puntos y pasa a mayúsculas
+    function normalizarTexto(txt) {
+      if (!txt) return '';
+      return txt
+        .toString()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toUpperCase();
+    }
+
+    // Comprobador inteligente: busca coincidencia de palabras clave
+    function coincidenCalles(c1, c2) {
+      const n1 = normalizarTexto(c1);
+      const n2 = normalizarTexto(c2);
+      if (n1 === n2 || n1.includes(n2) || n2.includes(n1)) return true;
+      
+      const palabras1 = n1.split(' ').filter(p => p.length > 2);
+      const palabras2 = n2.split(' ').filter(p => p.length > 2);
+      return palabras1.some(p => palabras2.includes(p));
+    }
 
     // MODAL DE INFORMACIÓN
     function abrirModalInfo() {
@@ -475,7 +499,7 @@
 
     if (inputCalle && sugerenciasContainer) {
       inputCalle.addEventListener('input', function() {
-        const query = this.value.trim().toUpperCase();
+        const query = normalizarTexto(this.value);
         sugerenciasContainer.innerHTML = '';
 
         if (query.length < 2) {
@@ -484,7 +508,7 @@
         }
 
         const coincidencias = listaCallesOficiales
-          .filter(c => c.includes(query))
+          .filter(c => normalizarTexto(c).includes(query))
           .slice(0, 8);
 
         if (coincidencias.length === 0) {
@@ -585,8 +609,9 @@
       let lon = -58.3816;
       let verificado_gps = false;
 
+      // Búsqueda tolerante en dataset oficial
       const match = STATE.datosOficiales.find(d => 
-        d.calle_nombre && d.calle_nombre.toString().toUpperCase().includes(calle) && Math.abs(d.calle_altura - altura) < 100
+        d.calle_nombre && coincidenCalles(d.calle_nombre, calle) && Math.abs(d.calle_altura - altura) <= 100
       );
 
       if (match) {
@@ -631,7 +656,6 @@
         actualizarVisualizaciones();
       }
 
-      // Cartel visual arriba
       mostrarToastExito();
 
       // Reiniciar contadores
@@ -666,7 +690,7 @@
         totalAlertas += (r.cementados || 0) + (r.mutilados || 0);
 
         const match = STATE.datosOficiales.find(o => 
-          o.calle_nombre && o.calle_nombre.toString().toUpperCase().includes(r.calle) && Math.abs(o.calle_altura - r.altura) < 100
+          o.calle_nombre && coincidenCalles(o.calle_nombre, r.calle) && Math.abs(o.calle_altura - r.altura) <= 100
         );
         if (match) {
           totalOficial += (match.total_arboles || 0);
@@ -710,11 +734,33 @@
       if (layerGroup) {
         layerGroup.clearLayers();
         STATE.reportes.forEach(r => {
-          if (r.lat && r.lon) {
-            const color = (r.cementados > 0 || r.mutilados > 0) ? '#dc2626' : '#059669';
-            L.circleMarker([r.lat, r.lon], { radius: 7, color: color, fillOpacity: 0.8 })
-              .bindPopup(`<b>${r.calle} ${r.altura}</b><br>Vivos: ${r.arboles_vivos}<br>Cementados: ${r.cementados}<br>Por: ${r.usuario_nombre}`)
-              .addTo(layerGroup);
+          let rLat = r.lat;
+          let rLon = r.lon;
+
+          // Si el reporte viejo quedó sin coordenadas reales, busca el centroide oficial
+          if (!rLat || !rLon || (Math.abs(rLat - (-34.6037)) < 0.0001 && Math.abs(rLon - (-58.3816)) < 0.0001)) {
+            const matchCoord = STATE.datosOficiales.find(o => 
+              o.calle_nombre && coincidenCalles(o.calle_nombre, r.calle) && Math.abs(o.calle_altura - r.altura) <= 100
+            );
+            if (matchCoord && matchCoord.lat && matchCoord.long) {
+              rLat = matchCoord.lat;
+              rLon = matchCoord.long;
+            }
+          }
+
+          if (rLat && rLon) {
+            const tieneAlerta = (r.cementados > 0 || r.mutilados > 0);
+            const colorMarcador = tieneAlerta ? '#dc2626' : '#2563eb'; // Rojo = Alerta, Azul = Reporte normal
+
+            L.circleMarker([rLat, rLon], { 
+              radius: 8, 
+              fillColor: colorMarcador, 
+              color: '#ffffff', 
+              weight: 2, 
+              fillOpacity: 0.9 
+            })
+            .bindPopup(`<b>${r.calle} ${r.altura}</b><br>Vivos: ${r.arboles_vivos || 0}<br>Cementados: ${r.cementados || 0}<br>Mutilados: ${r.mutilados || 0}<br>Por: ${r.usuario_nombre || 'Anónimo'}`)
+            .addTo(layerGroup);
           }
         });
       }
