@@ -33,7 +33,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col relative">
 
-  <!-- TOAST / CARTEL DE CONFIRMACIÓN ARRIBA (VISIBLE EN MÓVILES) -->
+  <!-- TOAST / CARTEL DE CONFIRMACIÓN ARRIBA -->
   <div id="toast-exito" class="fixed top-16 left-4 right-4 md:left-auto md:right-6 md:w-80 bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl border-2 border-emerald-500 z-50 transform -translate-y-32 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3">
     <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-xl text-white shadow-inner flex-shrink-0">
       <i class="fa-solid fa-tree animate-bounce"></i>
@@ -41,6 +41,71 @@
     <div>
       <h4 class="font-bold text-sm text-emerald-100">¡Registrado con éxito!</h4>
       <p class="text-[11px] text-emerald-200">¡Gracias por sumar datos a la comunidad!</p>
+    </div>
+  </div>
+
+  <!-- MODAL DE INFORMACIÓN / BIO / CONTACTO -->
+  <div id="modal-info" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 relative">
+      <button onclick="cerrarModalInfo()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="flex items-center space-x-3 mb-4">
+        <div class="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-lg">
+          <i class="fa-solid fa-circle-info"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-800">Acerca del Proyecto</h3>
+          <p class="text-xs text-emerald-700 font-medium">Ciencia Ciudadana & Monitoreo del Arbolado</p>
+        </div>
+      </div>
+
+      <div class="space-y-4 text-xs text-slate-600 leading-relaxed border-b pb-4">
+        <div>
+          <h4 class="font-bold text-slate-800 mb-1 flex items-center">
+            <i class="fa-solid fa-bullseye text-emerald-600 mr-1.5"></i> Propósito
+          </h4>
+          <p>Esta plataforma busca construir un censo cívico, independiente y colaborativo en CABA. Contrastamos la realidad observable en cada vereda con los datos oficiales abiertos del GCBA para identificar podas destructivas, canteros cementados y pérdida de cobertura verde en nuestros barrios.</p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-800 mb-1 flex items-center">
+            <i class="fa-solid fa-heart text-red-500 mr-1.5"></i> Agradecimiento
+          </h4>
+          <p>¡Gracias por sumarte a relevar tu cuadra! Cada dato cargado aporta evidencia transparente para agrupaciones vecinales, activistas ambientales y la comunidad en general.</p>
+        </div>
+
+        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <h4 class="font-bold text-slate-800 mb-1 flex items-center">
+            <i class="fa-solid fa-user-graduate text-emerald-700 mr-1.5"></i> Sobre el creador
+          </h4>
+          <p>Proyecto desarrollado por un <b>Sociólogo & Data Analyst</b> enfocado en datos públicos, análisis socioespacial y herramientas de impacto cívico.</p>
+          <div class="mt-2">
+            <a href="https://www.linkedin.com" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-emerald-700 hover:text-emerald-800 font-bold">
+              <i class="fa-brands fa-linkedin mr-1"></i> Perfil de LinkedIn &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORMULARIO DE CONTACTO OCULTO (Vía Formspree) -->
+      <div class="mt-4">
+        <h4 class="font-bold text-slate-800 text-xs mb-2 flex items-center">
+          <i class="fa-solid fa-envelope text-emerald-600 mr-1.5"></i> Enviar consulta o feedback
+        </h4>
+        <form action="https://formspree.io/f/TU_ID_DE_FORMSPREE" method="POST" class="space-y-2">
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" name="nombre" placeholder="Tu Nombre / Agrupación" required class="w-full px-2.5 py-1.5 border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <input type="email" name="email" placeholder="Tu Email de contacto" required class="w-full px-2.5 py-1.5 border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <textarea name="mensaje" rows="2" placeholder="Escribí tu mensaje o sugerencia aquí..." required class="w-full px-2.5 py-1.5 border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+          <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-1.5 rounded-lg text-xs transition">
+            Enviar Consulta
+          </button>
+        </form>
+        <p class="text-[10px] text-slate-400 mt-1 text-center">Tu email no queda expuesto públicamente en la app.</p>
+      </div>
     </div>
   </div>
 
@@ -84,13 +149,20 @@
         <span class="font-bold text-lg tracking-tight">Arbolado CABA <span class="text-[10px] font-normal bg-emerald-700 px-2 py-0.5 rounded text-emerald-200">Vecinal</span></span>
       </div>
       
-      <!-- PERFIL DE USUARIO ACTIVO -->
-      <div id="user-badge" class="flex items-center space-x-2 bg-emerald-900/60 px-3 py-1.5 rounded-xl text-xs border border-emerald-700/50">
-        <i class="fa-solid fa-user text-emerald-300"></i>
-        <span id="user-name-display" class="font-medium text-emerald-100 max-w-[110px] truncate">Cargando...</span>
-        <button onclick="abrirModalAuth()" title="Cambiar usuario" class="text-emerald-400 hover:text-white ml-1">
-          <i class="fa-solid fa-pen-to-square text-[11px]"></i>
+      <div class="flex items-center space-x-2">
+        <!-- BOTÓN MÁS INFO / BIO -->
+        <button onclick="abrirModalInfo()" title="Más Información" class="w-8 h-8 rounded-full bg-emerald-700 hover:bg-emerald-600 text-emerald-200 hover:text-white flex items-center justify-center transition text-sm">
+          <i class="fa-solid fa-info"></i>
         </button>
+
+        <!-- PERFIL DE USUARIO ACTIVO -->
+        <div id="user-badge" class="flex items-center space-x-2 bg-emerald-900/60 px-3 py-1.5 rounded-xl text-xs border border-emerald-700/50">
+          <i class="fa-solid fa-user text-emerald-300"></i>
+          <span id="user-name-display" class="font-medium text-emerald-100 max-w-[90px] md:max-w-[110px] truncate">Cargando...</span>
+          <button onclick="abrirModalAuth()" title="Cambiar usuario" class="text-emerald-400 hover:text-white ml-1">
+            <i class="fa-solid fa-pen-to-square text-[11px]"></i>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -267,6 +339,14 @@
 
     let map = null;
     let layerGroup = null;
+
+    // MODAL DE INFORMACIÓN
+    function abrirModalInfo() {
+      document.getElementById('modal-info').classList.remove('hidden');
+    }
+    function cerrarModalInfo() {
+      document.getElementById('modal-info').classList.add('hidden');
+    }
 
     // GESTIÓN DE USUARIOS
     function verificarUsuario() {
