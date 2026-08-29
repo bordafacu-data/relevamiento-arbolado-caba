@@ -33,7 +33,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col relative">
 
-  <!-- TOAST / CARTEL DE CONFIRMACIÓN ARRIBA -->
+  <!-- TOAST / CARTEL DE CONFIRMACIÓN -->
   <div id="toast-exito" class="fixed top-16 left-4 right-4 md:left-auto md:right-6 md:w-80 bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl border-2 border-emerald-500 z-50 transform -translate-y-32 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3">
     <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-xl text-white shadow-inner flex-shrink-0">
       <i class="fa-solid fa-tree animate-bounce"></i>
@@ -109,7 +109,7 @@
     </div>
   </div>
 
-  <!-- MODAL DE IDENTIFICACIÓN / BIENVENIDA -->
+  <!-- MODAL DE IDENTIFICACIÓN -->
   <div id="modal-auth" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100">
       <div class="text-center mb-4">
@@ -168,7 +168,7 @@
   <!-- CONTENEDOR PRINCIPAL -->
   <main class="max-w-7xl mx-auto px-4 py-4 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow w-full">
 
-    <!-- PANEL IZQUIERDO: RELEVAMIENTO -->
+    <!-- PANEL IZQUIERDO -->
     <section class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
       <div>
         <div class="flex justify-between items-center mb-2">
@@ -182,7 +182,7 @@
         <p class="text-xs text-slate-500 mb-4">Caminá por la cuadra y sumá con los botones <b>+</b> cada árbol observado.</p>
 
         <form id="form-relevamiento" class="space-y-4">
-          <!-- CALLE CON AUTOCOMPLETADO FLUIDO -->
+          <!-- CALLE CON AUTOCOMPLETADO -->
           <div class="relative">
             <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Calle</label>
             <input type="text" id="input-calle" autocomplete="off" placeholder="Empezá a escribir la calle..." required
@@ -207,7 +207,6 @@
 
           <!-- CONTADORES TÁCTILES -->
           <div class="space-y-3 pt-2">
-            
             <!-- Árboles Vivos -->
             <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
               <div>
@@ -246,7 +245,6 @@
                 <button type="button" onclick="alterarValor('input-mutilados', 1)" class="w-8 h-8 rounded-full bg-red-600 active:bg-red-700 text-white font-bold text-base flex items-center justify-center shadow-sm">+</button>
               </div>
             </div>
-
           </div>
 
           <button type="submit" id="btn-guardar" class="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl transition duration-150 shadow-md flex items-center justify-center space-x-2">
@@ -261,18 +259,17 @@
       </div>
     </section>
 
-    <!-- PANEL DERECHO: MAPA Y MÉTRICAS -->
+    <!-- PANEL DERECHO -->
     <section class="lg:col-span-2 space-y-4">
-
       <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex justify-between items-center mb-2 px-1">
           <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Mapa Interactivo Comunitario</h3>
-          <span class="text-[11px] text-slate-400">Azul: Reporte Vecinal | Rojo: Con Alerta (Cementado/Poda)</span>
+          <span class="text-[11px] text-slate-400">Puntos Azules: Cuadras Relevadas | Puntos Rojos: Con Alertas</span>
         </div>
         <div id="map"></div>
       </div>
 
-      <!-- MÉTRICAS EN TIEMPO REAL -->
+      <!-- MÉTRICAS -->
       <div class="grid grid-cols-3 gap-3">
         <div class="bg-white p-3.5 rounded-xl border border-slate-200 text-center">
           <span class="text-[11px] text-slate-500 font-semibold uppercase">Censo GCBA</span>
@@ -291,7 +288,7 @@
         </div>
       </div>
 
-      <!-- TABLA DE REPORTES -->
+      <!-- TABLA -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 overflow-x-auto">
         <h3 class="font-bold text-xs text-slate-700 mb-2 uppercase tracking-wide">Últimos Relevamientos en la Nube</h3>
         <table class="w-full text-left text-xs text-slate-600">
@@ -314,7 +311,6 @@
   </main>
 
   <script>
-    // 1. CREDENCIALES DE SUPABASE
     const SUPABASE_URL = 'https://lujbpyzetpuifondqkxy.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_EHi7TVLM0JTpUjmmPnpl1w_ytwcl_7O';
     
@@ -327,7 +323,6 @@
       console.warn("Supabase no inicializado:", err);
     }
 
-    // ESTADO GLOBAL
     const STATE = {
       userLocation: null,
       datosOficiales: [],
@@ -338,7 +333,7 @@
     let map = null;
     let layerGroup = null;
 
-    // NORMALIZADOR INTELIGENTE DE TEXTO
+    // Normalizador de texto
     function normalizarTexto(txt) {
       if (!txt) return '';
       return txt
@@ -351,6 +346,7 @@
         .toUpperCase();
     }
 
+    // Comprobador flexible de palabras clave (ej: "JOSE" coincide con "MARMOL, JOSE")
     function coincidenCalles(c1, c2) {
       const n1 = normalizarTexto(c1);
       const n2 = normalizarTexto(c2);
@@ -361,7 +357,7 @@
       return palabras1.some(p => palabras2.includes(p));
     }
 
-    // BUSCAR COORDENADAS POR PROXIMIDAD
+    // Búsqueda de coordenadas
     function buscarCoordenadasOficiales(calle, altura) {
       if (!STATE.datosOficiales || STATE.datosOficiales.length === 0) return null;
 
@@ -380,15 +376,9 @@
       return candidatos[0];
     }
 
-    // MODAL DE INFORMACIÓN
-    function abrirModalInfo() {
-      document.getElementById('modal-info').classList.remove('hidden');
-    }
-    function cerrarModalInfo() {
-      document.getElementById('modal-info').classList.add('hidden');
-    }
+    function abrirModalInfo() { document.getElementById('modal-info').classList.remove('hidden'); }
+    function cerrarModalInfo() { document.getElementById('modal-info').classList.add('hidden'); }
 
-    // GESTIÓN DE USUARIOS
     function verificarUsuario() {
       const guardado = localStorage.getItem('arbolado_user');
       if (guardado) {
@@ -405,9 +395,7 @@
       document.getElementById('auth-email').value = STATE.currentUser.email || '';
     }
 
-    function cerrarModalAuth() {
-      document.getElementById('modal-auth').classList.add('hidden');
-    }
+    function cerrarModalAuth() { document.getElementById('modal-auth').classList.add('hidden'); }
 
     document.getElementById('form-auth').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -451,7 +439,6 @@
       }, 300);
     }
 
-    // 4. CARGA CSVs
     let listaCallesOficiales = [];
 
     async function cargarDatasetsLocales() {
@@ -509,7 +496,7 @@
       });
     }
 
-    // BUSCADOR CALLES
+    // Buscador interactivo por palabras clave
     const inputCalle = document.getElementById('input-calle');
     const sugerenciasContainer = document.getElementById('lista-sugerencias');
 
@@ -523,8 +510,13 @@
           return;
         }
 
+        const palabrasQuery = query.split(' ').filter(p => p.length > 1);
+
         const coincidencias = listaCallesOficiales
-          .filter(c => normalizarTexto(c).includes(query))
+          .filter(c => {
+            const nomNorm = normalizarTexto(c);
+            return palabrasQuery.every(p => nomNorm.includes(p));
+          })
           .slice(0, 8);
 
         if (coincidencias.length === 0) {
@@ -555,7 +547,6 @@
       });
     }
 
-    // GEOLOCALIZACIÓN
     function iniciarGPS() {
       const label = document.getElementById('gps-status');
       if (navigator.geolocation) {
@@ -586,7 +577,6 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // SINCRONIZACIÓN Y GUARDADO
     async function sincronizarReportes() {
       if (supabaseClient) {
         try {
@@ -686,7 +676,6 @@
       }, 3500);
     }
 
-    // ACTUALIZACIÓN VISUAL
     function actualizarVisualizaciones() {
       let totalOficial = 0;
       let totalVecinos = 0;
@@ -736,13 +725,14 @@
         }
       }
 
+      // Dibujo garantizado de todos los puntos en el mapa
       if (layerGroup) {
         layerGroup.clearLayers();
         STATE.reportes.forEach(r => {
           let rLat = r.lat;
           let rLon = r.lon;
 
-          // Reubica registros guardados en el centro genérico
+          // Si el reporte no tenía coordenadas exactas, busca el centroide oficial de esa calle
           if (!rLat || !rLon || (Math.abs(rLat - (-34.6037)) < 0.0001 && Math.abs(rLon - (-58.3816)) < 0.0001)) {
             const matchCoord = buscarCoordenadasOficiales(r.calle, r.altura);
             if (matchCoord) {
@@ -753,7 +743,7 @@
 
           if (rLat && rLon) {
             const tieneAlerta = (r.cementados > 0 || r.mutilados > 0);
-            const colorMarcador = tieneAlerta ? '#dc2626' : '#2563eb'; // Rojo = Alerta, Azul = Normal
+            const colorMarcador = tieneAlerta ? '#dc2626' : '#2563eb'; // Rojo = Alertas, Azul = Cuadra Relevada OK
 
             L.circleMarker([rLat, rLon], { 
               radius: 8, 
