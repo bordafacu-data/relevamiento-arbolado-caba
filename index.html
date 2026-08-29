@@ -33,7 +33,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col relative">
 
-  <!-- TOAST / CARTEL DE CONFIRMACIÓN -->
+  <!-- TOAST / CARTEL DE CONFIRMACIÓN ARRIBA -->
   <div id="toast-exito" class="fixed top-16 left-4 right-4 md:left-auto md:right-6 md:w-80 bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl border-2 border-emerald-500 z-50 transform -translate-y-32 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3">
     <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-xl text-white shadow-inner flex-shrink-0">
       <i class="fa-solid fa-tree animate-bounce"></i>
@@ -207,7 +207,6 @@
 
           <!-- CONTADORES TÁCTILES -->
           <div class="space-y-3 pt-2">
-            <!-- Árboles Vivos -->
             <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100 flex items-center justify-between">
               <div>
                 <span class="text-xs font-bold text-emerald-900 block">Árboles Vivos</span>
@@ -220,7 +219,6 @@
               </div>
             </div>
 
-            <!-- Canteros Cementados -->
             <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-100 flex items-center justify-between">
               <div>
                 <span class="text-xs font-bold text-amber-900 block">Canteros Tapeados</span>
@@ -233,7 +231,6 @@
               </div>
             </div>
 
-            <!-- Poda Mutilante -->
             <div class="bg-red-50/60 p-3 rounded-xl border border-red-100 flex items-center justify-between">
               <div>
                 <span class="text-xs font-bold text-red-900 block">Poda Mutilante</span>
@@ -333,7 +330,6 @@
     let map = null;
     let layerGroup = null;
 
-    // Normalizador de texto
     function normalizarTexto(txt) {
       if (!txt) return '';
       return txt
@@ -346,7 +342,6 @@
         .toUpperCase();
     }
 
-    // Comprobador flexible de palabras clave (ej: "JOSE" coincide con "MARMOL, JOSE")
     function coincidenCalles(c1, c2) {
       const n1 = normalizarTexto(c1);
       const n2 = normalizarTexto(c2);
@@ -357,7 +352,27 @@
       return palabras1.some(p => palabras2.includes(p));
     }
 
-    // Búsqueda de coordenadas
+    // GEOCODIFICACIÓN DINÁMICA CON GCBA USIG API (Fallback Infalible)
+    async function geocodificarConUSIG(calle, altura) {
+      try {
+        const query = encodeURIComponent(`${calle} ${altura || 100}, CABA`);
+        const res = await fetch(`https://servicios.usig.buenosaires.gob.ar/normalizar/?direccion=${query}&geocodificar=true`);
+        const data = await res.json();
+        if (data && data.direccionesNormalizadas && data.direccionesNormalizadas.length > 0) {
+          const dir = data.direccionesNormalizadas[0];
+          if (dir.coordenadas && dir.coordenadas.y && dir.coordenadas.x) {
+            return {
+              lat: parseFloat(dir.coordenadas.y),
+              lon: parseFloat(dir.coordenadas.x)
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("USIG no disponible:", e);
+      }
+      return null;
+    }
+
     function buscarCoordenadasOficiales(calle, altura) {
       if (!STATE.datosOficiales || STATE.datosOficiales.length === 0) return null;
 
@@ -496,7 +511,6 @@
       });
     }
 
-    // Buscador interactivo por palabras clave
     const inputCalle = document.getElementById('input-calle');
     const sugerenciasContainer = document.getElementById('lista-sugerencias');
 
@@ -615,6 +629,7 @@
       let lon = -58.3816;
       let verificado_gps = false;
 
+      // 1. Buscar en dataset local
       const match = buscarCoordenadasOficiales(calle, altura);
       if (match) {
         lat = match.lat;
@@ -622,6 +637,13 @@
         if (!comuna && match.comuna) {
           comuna = parseInt(match.comuna);
           inputComuna.value = comuna;
+        }
+      } else {
+        // 2. Fallback: geocodificar en vivo con la API oficial del GCBA
+        const geoUSIG = await geocodificarConUSIG(calle, altura);
+        if (geoUSIG) {
+          lat = geoUSIG.lat;
+          lon = geoUSIG.lon;
         }
       }
 
@@ -676,7 +698,7 @@
       }, 3500);
     }
 
-    function actualizarVisualizaciones() {
+    async function actualizarVisualizaciones() {
       let totalOficial = 0;
       let totalVecinos = 0;
       let totalAlertas = 0;
@@ -725,25 +747,30 @@
         }
       }
 
-      // Dibujo garantizado de todos los puntos en el mapa
       if (layerGroup) {
         layerGroup.clearLayers();
-        STATE.reportes.forEach(r => {
+        for (const r of STATE.reportes) {
           let rLat = r.lat;
           let rLon = r.lon;
 
-          // Si el reporte no tenía coordenadas exactas, busca el centroide oficial de esa calle
+          // Si el reporte quedó guardado con la coordenada por defecto del Obelisco, se reubica automáticamente
           if (!rLat || !rLon || (Math.abs(rLat - (-34.6037)) < 0.0001 && Math.abs(rLon - (-58.3816)) < 0.0001)) {
             const matchCoord = buscarCoordenadasOficiales(r.calle, r.altura);
             if (matchCoord) {
               rLat = matchCoord.lat;
               rLon = matchCoord.long;
+            } else {
+              const geo = await geocodificarConUSIG(r.calle, r.altura);
+              if (geo) {
+                rLat = geo.lat;
+                rLon = geo.lon;
+              }
             }
           }
 
           if (rLat && rLon) {
             const tieneAlerta = (r.cementados > 0 || r.mutilados > 0);
-            const colorMarcador = tieneAlerta ? '#dc2626' : '#2563eb'; // Rojo = Alertas, Azul = Cuadra Relevada OK
+            const colorMarcador = tieneAlerta ? '#dc2626' : '#2563eb';
 
             L.circleMarker([rLat, rLon], { 
               radius: 8, 
@@ -755,7 +782,7 @@
             .bindPopup(`<b>${r.calle} ${r.altura}</b><br>Vivos: ${r.arboles_vivos || 0}<br>Cementados: ${r.cementados || 0}<br>Mutilados: ${r.mutilados || 0}<br>Por: ${r.usuario_nombre || 'Anónimo'}`)
             .addTo(layerGroup);
           }
-        });
+        }
       }
     }
 
