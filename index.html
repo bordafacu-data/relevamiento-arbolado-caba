@@ -33,7 +33,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col relative">
 
-  <!-- TOAST / CARTEL DE CONFIRMACIÓN ARRIBA -->
+  <!-- TOAST / CARTEL DE CONFIRMACIÓN -->
   <div id="toast-exito" class="fixed top-16 left-4 right-4 md:left-auto md:right-6 md:w-80 bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl border-2 border-emerald-500 z-50 transform -translate-y-32 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3">
     <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-xl text-white shadow-inner flex-shrink-0">
       <i class="fa-solid fa-tree animate-bounce"></i>
@@ -92,7 +92,7 @@
       <!-- FORMULARIO DE CONTACTO (Formspree) -->
       <div class="mt-4">
         <h4 class="font-bold text-slate-800 text-xs mb-2 flex items-center">
-          <i class="fa-solid fa-envelope text-emerald-600 mr-1.5"></i> Enviar consulta o feedback
+          <i class="fa-solid fa-envelope text-emerald-600 mr-1.5"></i> Enviar consulta o sugerencia
         </h4>
         <form action="https://formspree.io/f/TU_ID_DE_FORMSPREE" method="POST" class="space-y-2">
           <div class="grid grid-cols-2 gap-2">
@@ -101,10 +101,10 @@
           </div>
           <textarea name="mensaje" rows="2" placeholder="Escribí tu mensaje o sugerencia aquí..." required class="w-full px-2.5 py-1.5 border rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
           <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-1.5 rounded-lg text-xs transition">
-            Enviar Consulta
+            Enviar Mensaje
           </button>
         </form>
-        <p class="text-[10px] text-slate-400 mt-1 text-center">Tu email no queda expuesto públicamente en la app.</p>
+        <p class="text-[10px] text-slate-400 mt-1 text-center">Tu email se procesa de forma segura sin quedar expuesto públicamente.</p>
       </div>
     </div>
   </div>
@@ -150,12 +150,10 @@
       </div>
       
       <div class="flex items-center space-x-2">
-        <!-- BOTÓN MÁS INFO -->
         <button onclick="abrirModalInfo()" title="Más Información" class="w-8 h-8 rounded-full bg-emerald-700 hover:bg-emerald-600 text-emerald-200 hover:text-white flex items-center justify-center transition text-sm">
           <i class="fa-solid fa-info"></i>
         </button>
 
-        <!-- PERFIL DE USUARIO ACTIVO -->
         <div id="user-badge" class="flex items-center space-x-2 bg-emerald-900/60 px-3 py-1.5 rounded-xl text-xs border border-emerald-700/50">
           <i class="fa-solid fa-user text-emerald-300"></i>
           <span id="user-name-display" class="font-medium text-emerald-100 max-w-[90px] md:max-w-[110px] truncate">Cargando...</span>
@@ -184,7 +182,7 @@
         <p class="text-xs text-slate-500 mb-4">Caminá por la cuadra y sumá con los botones <b>+</b> cada árbol observado.</p>
 
         <form id="form-relevamiento" class="space-y-4">
-          <!-- CALLE CON AUTOCOMPLETADO FLUIDO -->
+          <!-- CALLE CON AUTOCOMPLETADO -->
           <div class="relative">
             <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Calle</label>
             <input type="text" id="input-calle" autocomplete="off" placeholder="Empezá a escribir la calle..." required
@@ -269,7 +267,7 @@
       <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex justify-between items-center mb-2 px-1">
           <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Mapa Interactivo Comunitario</h3>
-          <span class="text-[11px] text-slate-400">Azul: Reporte Vecinal | Rojo: Con Alerta (Cementado/Poda)</span>
+          <span class="text-[11px] text-slate-400">Puntos Azules: Cuadras Relevadas | Puntos Rojos: Con Alertas</span>
         </div>
         <div id="map"></div>
       </div>
@@ -340,7 +338,7 @@
     let map = null;
     let layerGroup = null;
 
-    // Normalizador de texto: quita tildes, comas, puntos y pasa a mayúsculas
+    // NORMALIZADOR INTELIGENTE DE TEXTO
     function normalizarTexto(txt) {
       if (!txt) return '';
       return txt
@@ -353,7 +351,6 @@
         .toUpperCase();
     }
 
-    // Comprobador inteligente: busca coincidencia de palabras clave
     function coincidenCalles(c1, c2) {
       const n1 = normalizarTexto(c1);
       const n2 = normalizarTexto(c2);
@@ -364,7 +361,27 @@
       return palabras1.some(p => palabras2.includes(p));
     }
 
-    // MODAL DE INFORMACIÓN
+    // OBTENER COORDENADAS POR APROXIMACIÓN GEOESPACIAL
+    function buscarCoordenadasOficiales(calle, altura) {
+      if (!STATE.datosOficiales || STATE.datosOficiales.length === 0) return null;
+
+      const candidatos = STATE.datosOficiales.filter(d => 
+        d.calle_nombre && coincidenCalles(d.calle_nombre, calle) && d.lat && d.long
+      );
+
+      if (candidatos.length === 0) return null;
+
+      // Ordena por cercanía de altura y selecciona la más próxima
+      candidatos.sort((a, b) => {
+        const diffA = Math.abs((parseInt(a.calle_altura) || 0) - altura);
+        const diffB = Math.abs((parseInt(b.calle_altura) || 0) - altura);
+        return diffA - diffB;
+      });
+
+      return candidatos[0];
+    }
+
+    // MODAL INFO
     function abrirModalInfo() {
       document.getElementById('modal-info').classList.remove('hidden');
     }
@@ -435,7 +452,7 @@
       }, 300);
     }
 
-    // 4. CARGA CSVs
+    // CARGA CSVs
     let listaCallesOficiales = [];
 
     async function cargarDatasetsLocales() {
@@ -493,7 +510,7 @@
       });
     }
 
-    // BUSCADOR CALLES
+    // BUSCADOR EN VIVO DE CALLES
     const inputCalle = document.getElementById('input-calle');
     const sugerenciasContainer = document.getElementById('lista-sugerencias');
 
@@ -539,7 +556,7 @@
       });
     }
 
-    // GEOLOCALIZACIÓN
+    // GPS & DISTANCIA
     function iniciarGPS() {
       const label = document.getElementById('gps-status');
       if (navigator.geolocation) {
@@ -570,11 +587,11 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // SINCRONIZACIÓN Y GUARDADO
+    // SINCRONIZACIÓN SUPABASE
     async function sincronizarReportes() {
       if (supabaseClient) {
         try {
-          const { data, error } = await supabaseClient.from('reportes_arbolado').select('*').order('id', { ascending: false }).limit(50);
+          const { data, error } = await supabaseClient.from('reportes_arbolado').select('*').order('id', { ascending: false }).limit(60);
           if (!error && data) {
             STATE.reportes = data;
             actualizarVisualizaciones();
@@ -599,7 +616,7 @@
       const inputMutilados = document.getElementById('input-mutilados');
 
       const calle = inputCalle.value.trim().toUpperCase();
-      const altura = parseInt(inputAltura.value);
+      const altura = parseInt(inputAltura.value) || 0;
       let comuna = parseInt(inputComuna.value) || null;
       const arboles_vivos = parseInt(inputVisibles.value) || 0;
       const cementados = parseInt(inputCementados.value) || 0;
@@ -609,16 +626,11 @@
       let lon = -58.3816;
       let verificado_gps = false;
 
-      // Búsqueda tolerante en dataset oficial
-      const match = STATE.datosOficiales.find(d => 
-        d.calle_nombre && coincidenCalles(d.calle_nombre, calle) && Math.abs(d.calle_altura - altura) <= 100
-      );
-
+      // Obtener coordenadas de la cuadra más cercana
+      const match = buscarCoordenadasOficiales(calle, altura);
       if (match) {
-        if (match.lat && match.long) {
-          lat = match.lat;
-          lon = match.long;
-        }
+        lat = match.lat;
+        lon = match.long;
         if (!comuna && match.comuna) {
           comuna = parseInt(match.comuna);
           inputComuna.value = comuna;
@@ -658,12 +670,10 @@
 
       mostrarToastExito();
 
-      // Reiniciar contadores
+      // Reset contadores
       inputVisibles.value = 0;
       inputCementados.value = 0;
       inputMutilados.value = 0;
-
-      // Mantener calle y comuna, vaciar altura
       inputAltura.value = '';
       
       btn.disabled = false;
@@ -679,7 +689,7 @@
       }, 3500);
     }
 
-    // ACTUALIZACIÓN VISUAL
+    // RENDERIZADO VISUAL
     function actualizarVisualizaciones() {
       let totalOficial = 0;
       let totalVecinos = 0;
@@ -689,9 +699,7 @@
         totalVecinos += (r.arboles_vivos || 0);
         totalAlertas += (r.cementados || 0) + (r.mutilados || 0);
 
-        const match = STATE.datosOficiales.find(o => 
-          o.calle_nombre && coincidenCalles(o.calle_nombre, r.calle) && Math.abs(o.calle_altura - r.altura) <= 100
-        );
+        const match = buscarCoordenadasOficiales(r.calle, r.altura);
         if (match) {
           totalOficial += (match.total_arboles || 0);
         }
@@ -737,12 +745,10 @@
           let rLat = r.lat;
           let rLon = r.lon;
 
-          // Si el reporte viejo quedó sin coordenadas reales, busca el centroide oficial
+          // Reubica reportes manuales que hubieran quedado en el centro por defecto
           if (!rLat || !rLon || (Math.abs(rLat - (-34.6037)) < 0.0001 && Math.abs(rLon - (-58.3816)) < 0.0001)) {
-            const matchCoord = STATE.datosOficiales.find(o => 
-              o.calle_nombre && coincidenCalles(o.calle_nombre, r.calle) && Math.abs(o.calle_altura - r.altura) <= 100
-            );
-            if (matchCoord && matchCoord.lat && matchCoord.long) {
+            const matchCoord = buscarCoordenadasOficiales(r.calle, r.altura);
+            if (matchCoord) {
               rLat = matchCoord.lat;
               rLon = matchCoord.long;
             }
