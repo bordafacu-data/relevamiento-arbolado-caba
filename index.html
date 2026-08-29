@@ -33,7 +33,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col relative">
 
-  <!-- TOAST / CARTEL DE CONFIRMACIÓN -->
+  <!-- TOAST / CARTEL DE CONFIRMACIÓN ARRIBA -->
   <div id="toast-exito" class="fixed top-16 left-4 right-4 md:left-auto md:right-6 md:w-80 bg-emerald-900 text-white p-4 rounded-2xl shadow-2xl border-2 border-emerald-500 z-50 transform -translate-y-32 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3">
     <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-xl text-white shadow-inner flex-shrink-0">
       <i class="fa-solid fa-tree animate-bounce"></i>
@@ -182,7 +182,7 @@
         <p class="text-xs text-slate-500 mb-4">Caminá por la cuadra y sumá con los botones <b>+</b> cada árbol observado.</p>
 
         <form id="form-relevamiento" class="space-y-4">
-          <!-- CALLE CON AUTOCOMPLETADO -->
+          <!-- CALLE CON AUTOCOMPLETADO FLUIDO -->
           <div class="relative">
             <label class="block text-[11px] font-bold uppercase text-slate-600 mb-1">Calle</label>
             <input type="text" id="input-calle" autocomplete="off" placeholder="Empezá a escribir la calle..." required
@@ -267,7 +267,7 @@
       <div class="bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
         <div class="flex justify-between items-center mb-2 px-1">
           <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Mapa Interactivo Comunitario</h3>
-          <span class="text-[11px] text-slate-400">Puntos Azules: Cuadras Relevadas | Puntos Rojos: Con Alertas</span>
+          <span class="text-[11px] text-slate-400">Azul: Reporte Vecinal | Rojo: Con Alerta (Cementado/Poda)</span>
         </div>
         <div id="map"></div>
       </div>
@@ -361,7 +361,7 @@
       return palabras1.some(p => palabras2.includes(p));
     }
 
-    // OBTENER COORDENADAS POR APROXIMACIÓN GEOESPACIAL
+    // BUSCAR COORDENADAS POR PROXIMIDAD
     function buscarCoordenadasOficiales(calle, altura) {
       if (!STATE.datosOficiales || STATE.datosOficiales.length === 0) return null;
 
@@ -371,7 +371,6 @@
 
       if (candidatos.length === 0) return null;
 
-      // Ordena por cercanía de altura y selecciona la más próxima
       candidatos.sort((a, b) => {
         const diffA = Math.abs((parseInt(a.calle_altura) || 0) - altura);
         const diffB = Math.abs((parseInt(b.calle_altura) || 0) - altura);
@@ -381,7 +380,7 @@
       return candidatos[0];
     }
 
-    // MODAL INFO
+    // MODAL DE INFORMACIÓN
     function abrirModalInfo() {
       document.getElementById('modal-info').classList.remove('hidden');
     }
@@ -452,7 +451,7 @@
       }, 300);
     }
 
-    // CARGA CSVs
+    // 4. CARGA CSVs
     let listaCallesOficiales = [];
 
     async function cargarDatasetsLocales() {
@@ -510,7 +509,7 @@
       });
     }
 
-    // BUSCADOR EN VIVO DE CALLES
+    // BUSCADOR CALLES
     const inputCalle = document.getElementById('input-calle');
     const sugerenciasContainer = document.getElementById('lista-sugerencias');
 
@@ -556,7 +555,7 @@
       });
     }
 
-    // GPS & DISTANCIA
+    // GEOLOCALIZACIÓN
     function iniciarGPS() {
       const label = document.getElementById('gps-status');
       if (navigator.geolocation) {
@@ -587,7 +586,7 @@
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
-    // SINCRONIZACIÓN SUPABASE
+    // SINCRONIZACIÓN Y GUARDADO
     async function sincronizarReportes() {
       if (supabaseClient) {
         try {
@@ -626,7 +625,6 @@
       let lon = -58.3816;
       let verificado_gps = false;
 
-      // Obtener coordenadas de la cuadra más cercana
       const match = buscarCoordenadasOficiales(calle, altura);
       if (match) {
         lat = match.lat;
@@ -670,7 +668,6 @@
 
       mostrarToastExito();
 
-      // Reset contadores
       inputVisibles.value = 0;
       inputCementados.value = 0;
       inputMutilados.value = 0;
@@ -689,7 +686,7 @@
       }, 3500);
     }
 
-    // RENDERIZADO VISUAL
+    // ACTUALIZACIÓN VISUAL
     function actualizarVisualizaciones() {
       let totalOficial = 0;
       let totalVecinos = 0;
@@ -745,7 +742,7 @@
           let rLat = r.lat;
           let rLon = r.lon;
 
-          // Reubica reportes manuales que hubieran quedado en el centro por defecto
+          // Reubica registros guardados en el centro genérico
           if (!rLat || !rLon || (Math.abs(rLat - (-34.6037)) < 0.0001 && Math.abs(rLon - (-58.3816)) < 0.0001)) {
             const matchCoord = buscarCoordenadasOficiales(r.calle, r.altura);
             if (matchCoord) {
@@ -756,7 +753,7 @@
 
           if (rLat && rLon) {
             const tieneAlerta = (r.cementados > 0 || r.mutilados > 0);
-            const colorMarcador = tieneAlerta ? '#dc2626' : '#2563eb'; // Rojo = Alerta, Azul = Reporte normal
+            const colorMarcador = tieneAlerta ? '#dc2626' : '#2563eb'; // Rojo = Alerta, Azul = Normal
 
             L.circleMarker([rLat, rLon], { 
               radius: 8, 
